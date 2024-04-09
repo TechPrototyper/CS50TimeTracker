@@ -19,7 +19,7 @@ class DatabaseManager:
             database_url (str): The database connection URL.
         """
         self.database_url = database_url
-        self.engine = None
+        self.engine = create_engine(self.database_url, echo=True)
 
     def create_engine(self):
         """
@@ -38,7 +38,11 @@ class DatabaseManager:
         """
         if self.engine is None:
             raise ValueError("Engine ist nicht initialisiert.")
-        SQLModel.metadata.create_all(self.engine)
+        try:
+            SQLModel.metadata.create_all(self.engine)
+        except Exception as e:
+            print(f"Error creating tables: {e}")
+            raise e
 
     @contextmanager
     def session(self):

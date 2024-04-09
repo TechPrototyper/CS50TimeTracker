@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Session, select
-from .database_manager import DatabaseManager
-from .sitr_models import User, Project, Tracking  # Angenommen, deine Modelle befinden sich in models.py
+from database_manager import DatabaseManager
+from sitr_models import User, Project, Tracking  # Angenommen, deine Modelle befinden sich in models.py
 from typing import List, TypeVar, Generic, Type
 from datetime import datetime
 
@@ -15,7 +15,7 @@ class BaseRepository(Generic[T]):
         model_class (Type[T]): The SQLModel class of the repository entity.
     """
 
-    def __init__(self, db_manager: DatabaseManager, model_class: Type[T]):
+    def __init__(self, db_manager: DatabaseManager, model_class: Type[T], session=None):
         """
         Initializes the base repository with a database manager and model class.
 
@@ -26,7 +26,16 @@ class BaseRepository(Generic[T]):
 
         self.db_manager = db_manager
         self.model_class = model_class
+        self._session = session
 
+    def _get_session(self):
+        # create english docstring for this method
+
+        if self._session is not None:
+            return self._session
+        else:
+            return self.db_manager.session()
+        
     def add(self, obj_data: dict) -> T:
         """
         Adds a new entity to the database.
@@ -38,7 +47,7 @@ class BaseRepository(Generic[T]):
             T: The added entity.
         """
 
-        with self.db_manager.session() as session:
+        with self._get_session() as session:
             obj = self.model_class(**obj_data)
             session.add(obj)
             session.commit()
@@ -56,7 +65,7 @@ class BaseRepository(Generic[T]):
             T: The entity with the specified ID.
         """
 
-        with self.db_manager.session() as session:
+        with self._get_session() as session:
             obj = session.get(self.model_class, obj_id)
             return obj
 
@@ -68,7 +77,7 @@ class BaseRepository(Generic[T]):
             List[T]: A list of all entities.
         """
 
-        with self.db_manager.session() as session:
+        with self._get_session() as session:
             result = session.exec(select(self.model_class)).all()
             return result
 
@@ -80,7 +89,7 @@ class BaseRepository(Generic[T]):
             obj_id (int): The ID of the entity to delete.
         """
 
-        with self.db_manager.session() as session:
+        with self._get_session() as session:
             obj = session.get(self.model_class, obj_id)
             session.delete(obj)
             session.commit()
@@ -125,7 +134,7 @@ class ProjectRepository(BaseRepository[Project]):
             List[Project]: A list of all active projects.
         '''
 
-        with self.db_manager.session() as session:
+        with self._get_session() as session:
             result = session.exec(select(Project).where(Project.state == "active")).all()
             return result
 
@@ -158,7 +167,7 @@ class TrackingRepository(BaseRepository[Tracking]):
             List[Tracking]: A list of tracking entries for the specified project.
         '''
         
-        with self.db_manager.session() as session:
+        with self._get_session() as session:
             result = session.exec(
                 select(Tracking).where(Tracking.project_id == project_id)
             ).all()
@@ -175,7 +184,7 @@ class TrackingRepository(BaseRepository[Tracking]):
             List[Tracking]: A list of tracking entries for the specified user.
         '''
 
-        with self.db_manager.session() as session:
+        with self._get_session() as session:
             result = session.exec(
                 select(Tracking).where(Tracking.user_id == user_id)
             ).all()
@@ -193,7 +202,7 @@ class TrackingRepository(BaseRepository[Tracking]):
             List[Tracking]: A list of tracking entries within the specified time range.
         '''
         
-        with self.db_manager.session() as session:
+        with self._get_session() as session:
             result = session.exec(
                 select(Tracking)
                 .where(Tracking.date_time >= start_date, Tracking.date_time < end_date)

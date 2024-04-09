@@ -1,6 +1,6 @@
 from sqlmodel import Field, SQLModel, Relationship
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 class User(SQLModel, table=True):
     """
@@ -45,7 +45,7 @@ class Project(SQLModel, table=True):
     state: str = Field(default="active")  # In der Praxis vielleicht besser ein Enum nutzen
     archive_date: Optional[datetime] = None
     tracking_count: int = Field(default=0)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     user_id: int = Field(foreign_key="user.id")
     owner: User = Relationship(back_populates="projects")
     trackings: List["Tracking"] = Relationship(back_populates="project")
@@ -65,7 +65,7 @@ class Tracking(SQLModel, table=True):
         project (Optional[Project]): The project associated with the tracking entry, if any.
     """
     id: Optional[int] = Field(default=None, primary_key=True)
-    date_time: datetime = Field(default_factory=datetime.now(datetime.timezone.utc))
+    date_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     user_id: int = Field(foreign_key="user.id")
     project_id: Optional[int] = Field(default=None, foreign_key="project.id")
     action: str  # Aktionstyp, z.B. "Arbeitsbeginn", "Pause", etc.
