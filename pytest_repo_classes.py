@@ -6,8 +6,8 @@ from sitr_models import User, Project
 from database_repositories import UserRepository, ProjectRepository
 
 # Konfiguriere eine Testdatenbank (SQLite In-Memory)
-# DATABASE_URL = "sqlite:///.myLocalDatabase.db"
-DATABASE_URL = "sqlite:///:memory:"
+DATABASE_URL = "sqlite:///.myLocalDatabase.db"
+# DATABASE_URL = "sqlite:///:memory:"
 engine = create_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
