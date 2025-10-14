@@ -13,6 +13,17 @@ by Tim Walter, begun in 2023, forgot about in 2024, and finished in 2025
 
 This project started as a **CS50 Final Project** but remained unfinished for quite some time. The deadline of CS50 has passed, and now it has been completed because I want to use it myself. After revisiting the initial design and architecture, it became clear that the foundation was solid enough to complete. So I put my vision and a dozen of fragmented Source Code files and let Claude Sonnet 4.5 insinuate a bit. The result is a production-ready server that does data handling, and a CLI tool that attaches to that API layer. The backend / business logic was built with Domain-Driven Design principles.
 
+Having said that, there is still some remaining work I will attack when (or if) I find the time:
+
+- Create a simple GUI on Mac, iOS and Apple Watch
+- Put the server into the cloud to use it from anywhere
+- Hence, use OpenID to attach users with known identities for a reasonable security
+- Create install routines for Linux, MacOS and Windows to start local server automatically, and control this via any of the UIs
+- Perhaps support managed interfaces to popular commercial tools real people are using
+- Perhaps productize it with the basic version free forever.
+
+Find this useful? Like to add a bit? Just let me know.
+
 ## 💡 What Makes SITR Different
 
 ### A Consultant's Perspective
