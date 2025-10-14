@@ -61,183 +61,176 @@ This creates natural separation of contexts, perfect for:
 git clone https://github.com/TechPrototyper/CS50TimeTracker.git
 cd CS50TimeTracker
 
-# Create and activate virtual environment
-python3 -m venv .venv
-source .venv/bin/activate  # macOS/Linux
-# or: .venv\Scripts\activate on Windows
+# Run the installer
+./install.sh
 
-# Install dependencies
-pip install -r requirements.txt
+# Or install manually:
+pip3 install .
 ```
+
+After installation, the `sitr` command is available globally:
+
+```bash
+sitr --help
+sitr start-day
+```
+
+For detailed installation instructions, see [INSTALL.md](INSTALL.md).
 
 ### Your First Workday
 
 ```bash
 # 1. Create a user
-python sitr_cli.py user add -f John -l Doe -e john@example.com
+sitr user add -f John -l Doe -e john@example.com
 
 # 2. Select the user
-python sitr_cli.py user select -e john@example.com
+sitr user select -e john@example.com
 
 # 3. Create a project
-python sitr_cli.py project add -n "CS50 Final Project"
+sitr project add -n "CS50 Final Project"
 
 # 4. Start your workday
-python sitr_cli.py start-day
+sitr start-day
 
 # 5. Start working on the project
-python sitr_cli.py start "CS50 Final Project"
+sitr start "CS50 Final Project"
 
 # 6. Take a break
-python sitr_cli.py break start
+sitr break start
 
 # 7. Resume work
-python sitr_cli.py continue
+sitr continue
 
 # 8. End your workday
-python sitr_cli.py end-day
+sitr end-day
 ```
 
 **Note**: The API server starts automatically with any command. No manual server management needed!
 
-## Installation
+### Server Management (optional - auto-starts)
 
 ```bash
-# Python Virtual Environment erstellen und aktivieren
-python3 -m venv .venv
-source .venv/bin/activate  # Auf macOS/Linux
-# oder: .venv\Scripts\activate auf Windows
+# Start server manually
+sitr server start
 
-# Dependencies installieren
-pip install -r requirements.txt
+# Check server status
+sitr server status
+
+# Stop server
+sitr server stop
+
+# View server logs
+sitr server logs
 ```
 
-## Quick Start
+**Note**: The server starts automatically with any CLI command. Manual start is not necessary!
 
-### Server Management (optional - startet automatisch)
-
-```bash
-# Server manuell starten
-python sitr_cli.py server start
-
-# Server Status prüfen
-python sitr_cli.py server status
-
-# Server stoppen
-python sitr_cli.py server stop
-
-# Server Logs anzeigen
-python sitr_cli.py server logs
-```
-
-**Hinweis**: Der Server startet automatisch bei jedem CLI-Command. Manueller Start ist nicht nötig!
-
-### 1. User anlegen
+### 1. Create User
 
 ```bash
-python sitr_cli.py user add \
+sitr user add \
   --firstname Tim \
   --lastname Walter \
   --email tech@smartlogics.net
 ```
 
-### 2. User auswählen
+### 2. Select User
 
 ```bash
-python sitr_cli.py user select --email tech@smartlogics.net
+sitr user select --email tech@smartlogics.net
 ```
 
-### 3. Projekt erstellen
+### 3. Create Project
 
 ```bash
-python sitr_cli.py project add --name "CS50 Final Project"
+sitr project add --name "CS50 Final Project"
 ```
 
-### 4. Arbeitstag starten
+### 4. Start Workday
 
 ```bash
-python sitr_cli.py start-day
+sitr start-day
 ```
 
-### 5. An Projekt arbeiten
+### 5. Work on Project
 
 ```bash
-python sitr_cli.py start "CS50 Final Project"
+sitr start "CS50 Final Project"
 ```
 
-### 6. Pause machen
+### 6. Take a Break
 
 ```bash
-python sitr_cli.py break start
+sitr break start
 ```
 
-### 7. Weiterarbeiten
+### 7. Resume Work
 
 ```bash
-python sitr_cli.py continue
+sitr continue
 ```
 
-### 8. Zu anderem Projekt wechseln
+### 8. Switch to Another Project
 
 ```bash
-python sitr_cli.py start "Documentation"
-# Vorheriges Projekt wird automatisch beendet
+sitr start "Documentation"
+# Previous project will be automatically ended
 ```
 
-### 9. Arbeitstag beenden
+### 9. End Workday
 
 ```bash
-python sitr_cli.py end-day
-# Alle offenen Projekte/Breaks werden automatisch geschlossen
+sitr end-day
+# All open projects/breaks will be automatically closed
 ```
 
-### Weitere Commands
+### Additional Commands
 
 ```bash
-# Alle User anzeigen
-python sitr_cli.py user list
+# List all users
+sitr user list
 
-# Alle aktiven Projekte anzeigen
-python sitr_cli.py projects
+# List all active projects
+sitr projects
 
-# Projekt archivieren
-python sitr_cli.py project archive --name "Old Project"
+# Archive project
+sitr project archive --name "Old Project"
 ```
 
 ## 📚 Commands Overview
 
 ### User Management
 ```bash
-python sitr_cli.py user add -f <firstname> -l <lastname> -e <email>
-python sitr_cli.py user list
-python sitr_cli.py user select -e <email>
-python sitr_cli.py user delete -e <email>
+sitr user add -f <firstname> -l <lastname> -e <email>
+sitr user list
+sitr user select -e <email>
+sitr user delete -e <email>
 ```
 
 ### Project Management
 ```bash
-python sitr_cli.py project add -n <name>
-python sitr_cli.py projects                    # List all active projects
-python sitr_cli.py project archive -n <name>
+sitr project add -n <name>
+sitr projects                    # List all active projects
+sitr project archive -n <name>
 ```
 
 ### Time Tracking
 ```bash
-python sitr_cli.py start-day                   # Begin your workday
-python sitr_cli.py start <project-name>        # Start working on a project
-python sitr_cli.py end <project-name>          # End work on a project
-python sitr_cli.py break start                 # Take a break
-python sitr_cli.py continue                    # Resume work after break
-python sitr_cli.py end-day                     # End your workday
+sitr start-day                   # Begin your workday
+sitr start <project-name>        # Start working on a project
+sitr end <project-name>          # End work on a project
+sitr break start                 # Take a break
+sitr continue                    # Resume work after break
+sitr end-day                     # End your workday
 ```
 
 ### Server Management (optional)
 ```bash
-python sitr_cli.py server start
-python sitr_cli.py server stop
-python sitr_cli.py server status
-python sitr_cli.py server restart
-python sitr_cli.py server logs
+sitr server start
+sitr server stop
+sitr server status
+sitr server restart
+sitr server logs
 ```
 
 ## 🔧 Configuration
