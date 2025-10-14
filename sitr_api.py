@@ -598,6 +598,136 @@ async def archive_project(request: ArchiveProjectRequest):
         )
 
 
+@app.get("/api/tracking/latest", tags=["Time Tracking"])
+async def get_latest_tracking(user_id: int):
+    """Get the latest tracking entry for a user.
+    
+    This is useful for determining what the user is currently working on.
+    """
+    db_manager = get_db_manager()
+    tracking_repo = TrackingRepository(db_manager, Tracking)
+    project_repo = ProjectRepository(db_manager, Project)
+
+    try:
+        # Get all tracking entries for user, sorted by date_time desc
+        all_entries = tracking_repo.get_all()
+        user_entries = [
+            e for e in all_entries if e.user_id == user_id
+        ]
+        
+        if not user_entries:
+            return None
+        
+        # Sort by date_time descending and get the latest
+        user_entries.sort(key=lambda e: e.date_time, reverse=True)
+        latest = user_entries[0]
+        
+        # Get project name if project_id exists
+        project_name = None
+        if latest.project_id:
+            project = project_repo.get(latest.project_id)
+            if project:
+                project_name = project.name
+        
+        return {
+            "id": latest.id,
+            "user_id": latest.user_id,
+            "action": latest.action,
+            "project_name": project_name,
+            "timestamp": latest.date_time.isoformat(),
+            "message": latest.message
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@app.get("/api/tracking/today", tags=["Time Tracking"])
+async def get_today_tracking(user_id: int):
+    """Get all tracking entries for today for a user.
+    
+    Returns entries from today's workday in chronological order.
+    """
+    db_manager = get_db_manager()
+    tracking_repo = TrackingRepository(db_manager, Tracking)
+    project_repo = ProjectRepository(db_manager, Project)
+
+    try:
+        # Get all tracking entries for user
+        all_entries = tracking_repo.get_all()
+        user_entries = [
+            e for e in all_entries if e.user_id == user_id
+        ]
+        
+        if not user_entries:
+            return []
+        
+        # Sort by date_time descending
+        user_entries.sort(key=lambda e: e.date_time, reverse=True)
+        
+        # Find today's entries (from last Workday Start to now or Workday End)
+        today_entries = []
+        found_workday_start = False
+        
+        for entry in user_entries:
+            if entry.action == "Workday End":
+                # Stop if we hit a workday end (means we're past today's work)
+                if found_workday_start:
+                    break
+                continue
+            
+            if entry.action == "Workday Start":
+                found_workday_start = True
+                # Add this entry
+                project_name = None
+                if entry.project_id:
+                    project = project_repo.get(entry.project_id)
+                    if project:
+                        project_name = project.name
+                
+                today_entries.append({
+                    "id": entry.id,
+                    "user_id": entry.user_id,
+                    "action": entry.action,
+                    "project_name": project_name,
+                    "timestamp": entry.date_time.isoformat(),
+                    "message": entry.message
+                })
+                break  # Found workday start, stop searching
+            
+            if found_workday_start or entry.action in [
+                "Project Start", "Project End", "Project Resume",
+                "Break Start", "Break End"
+            ]:
+                # Add this entry
+                project_name = None
+                if entry.project_id:
+                    project = project_repo.get(entry.project_id)
+                    if project:
+                        project_name = project.name
+                
+                today_entries.append({
+                    "id": entry.id,
+                    "user_id": entry.user_id,
+                    "action": entry.action,
+                    "project_name": project_name,
+                    "timestamp": entry.date_time.isoformat(),
+                    "message": entry.message
+                })
+        
+        # Reverse to get chronological order (oldest first)
+        today_entries.reverse()
+        
+        return today_entries
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
 # Main entry point for running with uvicorn
 if __name__ == "__main__":
     import uvicorn

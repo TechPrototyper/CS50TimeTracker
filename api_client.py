@@ -294,6 +294,22 @@ class APIClient:
             }
         )
 
+    def get_latest_tracking(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """Get the latest tracking entry for a user."""
+        return self._make_request(
+            "GET",
+            "/api/tracking/latest",
+            params={"user_id": user_id}
+        )
+
+    def get_today_tracking(self, user_id: int) -> List[Dict[str, Any]]:
+        """Get all tracking entries for today for a user."""
+        return self._make_request(
+            "GET",
+            "/api/tracking/today",
+            params={"user_id": user_id}
+        )
+
 
 # Singleton instance
 _api_client: Optional[APIClient] = None

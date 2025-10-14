@@ -212,6 +212,8 @@ def add_user(
 def list_users():
     """List all users."""
     client = get_client()
+    config = get_config()
+    current_user_id = config.get_current_user_id()
 
     users = client.list_users()
     if not users:
@@ -219,6 +221,7 @@ def list_users():
         return
 
     table = Table(title="Users")
+    table.add_column("", style="yellow", width=2)  # Marker column
     table.add_column("ID", style="cyan")
     table.add_column("Name", style="green")
     table.add_column("Email", style="blue")
@@ -228,9 +231,17 @@ def list_users():
         if user.get('middle_initial'):
             name += f" {user['middle_initial']}."
         name += f" {user['last_name']}"
-        table.add_row(str(user['id']), name, user['email'])
+        
+        # Mark active user with arrow
+        marker = "→" if user['id'] == current_user_id else ""
+        table.add_row(marker, str(user['id']), name, user['email'])
 
     console.print(table)
+    
+    if current_user_id:
+        console.print(
+            "\n[dim]→ marks the currently active user[/dim]"
+        )
 
 
 @user_app.command(
@@ -552,6 +563,93 @@ def project_add(
         raise typer.Exit(1)
 
 
+@project_app.command("list", help="""List all your projects.
+    
+    \b
+    By default, shows only active projects sorted by creation date.
+    Use --all to include archived projects, or --alphabet for
+    alphabetical sorting.
+    
+    \b
+    Examples:
+      sitr project list
+      sitr project list --all
+      sitr project list --alphabet
+    """)
+def project_list(
+    all_projects: bool = typer.Option(
+        False, "--all", help="Include archived projects"),
+    alphabetic: bool = typer.Option(
+        False, "--alphabet", help="Sort alphabetically by name")
+):
+    """List all projects."""
+    user_id = get_current_user_id()
+    client = get_client()
+
+    try:
+        # Get projects
+        projects = client.list_projects(
+            user_id=user_id,
+            include_archived=all_projects,
+            sort_alphabetically=alphabetic
+        )
+
+        if not projects:
+            console.print(
+                "[yellow]No projects found. "
+                "Create one with 'sitr project add'[/yellow]"
+            )
+            return
+
+        # Try to get current working project from tracking data
+        current_project_name = None
+        try:
+            # Get latest tracking entry to see if working on something
+            tracking = client.get_latest_tracking(user_id)
+            if tracking and tracking.get('project_name'):
+                # Check if it's a start/resume without matching end
+                action = tracking.get('action')
+                if action in ['Project Start', 'Project Resume']:
+                    current_project_name = tracking['project_name']
+        except Exception:
+            pass  # If this fails, just don't mark anything
+
+        # Create table
+        table = Table(title="Projects", show_header=True)
+        table.add_column("", style="yellow", width=2)  # Marker column
+        table.add_column("Name", style="cyan", no_wrap=True)
+        table.add_column("Status", style="green")
+        table.add_column("Created", style="dim")
+
+        for project in projects:
+            # project['state'] is 'active' or 'archived'
+            is_active = project['state'] == 'active'
+            status = "Active" if is_active else "Archived"
+            style = "green" if is_active else "dim"
+            created = project['created_at'].split('T')[0]
+            
+            # Mark currently working project with arrow
+            marker = "→" if project['name'] == current_project_name else ""
+
+            table.add_row(
+                marker,
+                project['name'],
+                f"[{style}]{status}[/{style}]",
+                created
+            )
+
+        console.print(table)
+        
+        if current_project_name:
+            console.print(
+                "\n[dim]→ marks the project you're currently "
+                "working on[/dim]"
+            )
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
 @project_app.command("archive", help="""Archive or restore a project.
     
     \b
@@ -620,23 +718,229 @@ def list_projects(
             console.print("[yellow]No projects found.[/yellow]")
             return
 
+        # Try to get current working project from tracking data
+        current_project_name = None
+        try:
+            # Get latest tracking entry to see if working on something
+            tracking = client.get_latest_tracking(user_id)
+            if tracking and tracking.get('project_name'):
+                # Check if it's a start/resume without matching end
+                action = tracking.get('action')
+                if action in ['Project Start', 'Project Resume']:
+                    current_project_name = tracking['project_name']
+        except Exception:
+            pass  # If this fails, just don't mark anything
+
         table = Table(title="Projects")
+        table.add_column("", style="yellow", width=2)  # Marker column
         table.add_column("Name", style="green")
         table.add_column("State", style="cyan")
         table.add_column("Created", style="yellow")
 
         for project in projects:
             created = datetime.fromisoformat(project['created_at'])
+            # Mark currently active project with arrow
+            marker = "→" if project['name'] == current_project_name else ""
             table.add_row(
+                marker,
                 project['name'],
                 project['state'],
                 created.strftime('%Y-%m-%d')
             )
 
         console.print(table)
+        
+        if current_project_name:
+            console.print(
+                "\n[dim]→ marks the project you're currently "
+                "working on[/dim]"
+            )
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1)
+
+
+@app.command("status")
+def show_status():
+    """
+    Show what you're currently doing.
+    
+    Human-readable status of your workday, current activity, and time spent.
+    """
+    client = get_client()
+    config = get_config()
+    
+    try:
+        # Get user info
+        user_id = config.get_current_user_id()
+        user_email = config.get_current_user_email()
+        
+        if not user_id or not user_email:
+            console.print(
+                "[yellow]No user selected.[/yellow] "
+                "Use [cyan]sitr user select[/cyan] first."
+            )
+            raise typer.Exit(1)
+        
+        # Get user details for full name
+        users = client.list_users()
+        current_user = next((u for u in users if u['id'] == user_id), None)
+        if current_user:
+            name = f"{current_user['first_name']} {current_user['last_name']}"
+        else:
+            name = user_email
+        
+        console.print(f"[bold]You are:[/bold] {name}")
+        
+        # Get today's tracking entries
+        today_entries = client.get_today_tracking(user_id)
+        
+        if not today_entries:
+            console.print(
+                "[dim]No active workday.[/dim] "
+                "Start with [cyan]sitr start-day[/cyan]"
+            )
+            return
+        
+        # Find workday start (should be first entry)
+        workday_start = None
+        for entry in today_entries:
+            if entry['action'] == 'Workday Start':
+                workday_start = datetime.fromisoformat(entry['timestamp'])
+                break
+        
+        if not workday_start:
+            console.print(
+                "[dim]No active workday.[/dim] "
+                "Start with [cyan]sitr start-day[/cyan]"
+            )
+            return
+        
+        # Calculate time since workday start
+        # Make sure we use timezone-aware datetime for comparison
+        from datetime import timezone
+        if workday_start.tzinfo is None:
+            # If stored time is naive, assume UTC
+            workday_start = workday_start.replace(tzinfo=timezone.utc)
+        
+        now = datetime.now(timezone.utc)
+        elapsed = now - workday_start
+        hours = int(elapsed.total_seconds() // 3600)
+        minutes = int((elapsed.total_seconds() % 3600) // 60)
+        
+        # Convert to local time for display
+        local_start = workday_start.astimezone()
+        start_time = local_start.strftime('%H:%M')
+        
+        console.print(
+            f"[bold]Workday started:[/bold] {start_time} "
+            f"({hours}h {minutes}m ago)"
+        )
+        
+        # Analyze current state from today's entries
+        # Process entries in chronological order to build up state
+        current_project = None
+        current_project_start = None
+        on_break = False
+        
+        for entry in today_entries:
+            action = entry['action']
+            timestamp = datetime.fromisoformat(entry['timestamp'])
+            
+            if action == 'Break Start':
+                on_break = True
+                current_project = None
+                current_project_start = None
+            elif action == 'Break End':
+                on_break = False
+            elif action in ['Project Start', 'Project Resume']:
+                current_project = entry['project_name']
+                current_project_start = timestamp
+                on_break = False
+            elif action == 'Project End':
+                current_project = None
+                current_project_start = None
+        
+        # Show current activity
+        if on_break:
+            console.print("[bold]Currently:[/bold] [yellow]On break[/yellow]")
+        elif current_project and current_project_start:
+            # Ensure timezone consistency for project start time
+            if current_project_start.tzinfo is None:
+                current_project_start = current_project_start.replace(
+                    tzinfo=timezone.utc
+                )
+            
+            proj_elapsed = now - current_project_start
+            proj_minutes = int(proj_elapsed.total_seconds() // 60)
+            
+            if proj_minutes < 60:
+                time_str = f"{proj_minutes} minutes"
+            else:
+                proj_hours = proj_minutes // 60
+                proj_mins = proj_minutes % 60
+                time_str = f"{proj_hours}h {proj_mins}m"
+            
+            console.print(
+                f"[bold]Working on:[/bold] [green]{current_project}[/green] "
+                f"[dim](for {time_str})[/dim]"
+            )
+        else:
+            console.print(
+                "[bold]Currently:[/bold] [dim]Not working on any project[/dim]"
+            )
+            console.print(
+                "[dim]Start with:[/dim] [cyan]sitr start <project>[/cyan]"
+            )
+        
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@app.command("info")
+def show_info():
+    """
+    Show detailed system information and configuration.
+    
+    Displays:
+    - Server configuration (host, port)
+    - Database location
+    - Config file location
+    - API endpoint URLs
+    """
+    config = get_config()
+    
+    info_table = Table(title="SITR System Information", show_header=True)
+    info_table.add_column("Setting", style="cyan", no_wrap=True)
+    info_table.add_column("Value", style="green")
+    
+    # Config file
+    import os
+    config_file = os.path.expanduser("~/.sitrconfig")
+    info_table.add_row("Config File", config_file)
+    
+    # Database
+    db_file = os.path.join(os.getcwd(), "sitr.db")
+    info_table.add_row("Database", db_file)
+    
+    # Server
+    info_table.add_row("Server Host", config.get_server_host())
+    info_table.add_row("Server Port", str(config.get_server_port()))
+    info_table.add_row("API URL", config.get_api_url())
+    info_table.add_row("API Docs", f"{config.get_api_url()}/docs")
+    info_table.add_row("Auto-start Server", str(config.get_auto_start_server()))
+    
+    # User
+    user_email = config.get_current_user_email()
+    if user_email:
+        info_table.add_row("Current User", user_email)
+    else:
+        info_table.add_row("Current User", "[dim]Not set[/dim]")
+    
+    console.print(info_table)
+    
+    console.print("\n[dim]Tip: Use 'sitr status' for current work status[/dim]")
 
 
 if __name__ == "__main__":
