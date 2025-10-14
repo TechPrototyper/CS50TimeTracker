@@ -58,7 +58,7 @@ class DatabaseManager:
         Raises:
             Any exception that occurs within the context block is propagated after performing a rollback.
         """
-        session = Session(bind=self.engine)
+        session = Session(bind=self.engine, expire_on_commit=False)
         try:
             yield session
             session.commit()

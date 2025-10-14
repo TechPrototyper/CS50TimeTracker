@@ -1,4 +1,19 @@
+# Core Framework
+fastapi
 uvicorn
 pydantic
-fastapi
+email-validator
+
+# Database
 sqlmodel
+
+# CLI
+typer
+rich
+
+# API Client & Server Management
+requests
+psutil
+
+# Testing
+pytest
