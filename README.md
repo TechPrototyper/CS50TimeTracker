@@ -101,11 +101,41 @@ sitr break start
 # 7. Resume work
 sitr continue
 
-# 8. End your workday
+# 8. Check your progress
+sitr status
+
+# 9. Generate a report
+sitr report today
+
+# 10. End your workday
 sitr end-day
 ```
 
 **Note**: The API server starts automatically with any command. No manual server management needed!
+
+### Example Report Output
+
+After working on multiple projects, get a beautiful summary:
+
+```bash
+$ sitr report today
+```
+
+```
+               Daily Time Report               
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━┓
+┃ Project          ┃ Start ┃ End   ┃ Duration ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━━━┩
+│ CS50 Final       │ 09:15 │ 11:30 │   2h 15m │
+│ Documentation    │ 11:45 │ 12:20 │   0h 35m │
+│ Code Review      │ 13:30 │ 15:45 │   2h 15m │
+├──────────────────┼───────┼───────┼──────────┤
+│ Total Work Time  │       │       │   5h 5m  │
+│ Total Break Time │       │       │   0h 45m │
+└──────────────────┴───────┴───────┴──────────┘
+```
+
+Export formats available: CSV, Markdown, JSON, or copy to clipboard for easy reporting!
 
 ### Server Management (optional - auto-starts)
 
@@ -222,6 +252,23 @@ sitr end <project-name>          # End work on a project
 sitr break start                 # Take a break
 sitr continue                    # Resume work after break
 sitr end-day                     # End your workday
+sitr status                      # Check current status
+sitr info                        # Technical system information
+```
+
+### Reports & Analytics
+```bash
+sitr report today                # Today's work summary (ASCII table)
+sitr report today --format csv   # Export as CSV
+sitr report today --format markdown  # Markdown table
+sitr report today --format json  # JSON output
+sitr report week                 # This week's summary
+sitr report project "MyProject"  # Project-specific report
+
+# Output options
+sitr report today --output timesheet.csv  # Save to file
+sitr report today --clipboard    # Copy to clipboard (macOS)
+sitr report today --no-header    # CSV without header row
 ```
 
 ### Server Management (optional)

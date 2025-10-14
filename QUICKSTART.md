@@ -241,6 +241,23 @@ sitr end <project-name>          # End project
 sitr break start                 # Take break
 sitr continue                    # Resume after break
 sitr end-day                     # End workday
+sitr status                      # Current status
+sitr info                        # System info
+```
+
+### Reports & Analytics
+```bash
+sitr report today                # Daily report (ASCII)
+sitr report today --format csv   # CSV format
+sitr report today --format markdown  # Markdown
+sitr report today --format json  # JSON
+sitr report week                 # Weekly summary
+sitr report project "MyProject"  # Project report
+
+# Output options
+sitr report today --output file.csv  # Save to file
+sitr report today --clipboard    # Copy to clipboard
+sitr report today --no-header    # CSV without header
 ```
 
 ### Server Management
@@ -250,6 +267,134 @@ sitr server stop
 sitr server status
 sitr server restart
 sitr server logs
+```
+
+## Reports & Analytics
+
+SITR provides powerful reporting capabilities to analyze your work patterns.
+
+### Daily Report
+
+See what you worked on today:
+
+```bash
+sitr report today
+```
+
+Output:
+```
+               Daily Time Report               
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━┓
+┃ Project          ┃ Start ┃ End   ┃ Duration ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━━━┩
+│ Documentation    │ 09:15 │ 11:30 │   2h 15m │
+│ CS50 Final       │ 11:45 │ 14:20 │   2h 35m │
+│ Code Review      │ 14:30 │ 16:45 │   2h 15m │
+├──────────────────┼───────┼───────┼──────────┤
+│ Total Work Time  │       │       │   7h 5m  │
+│ Total Break Time │       │       │   0h 30m │
+└──────────────────┴───────┴───────┴──────────┘
+```
+
+### Export to CSV
+
+Perfect for spreadsheets:
+
+```bash
+sitr report today --format csv --output timesheet.csv
+```
+
+Output file `timesheet.csv`:
+```csv
+Project,Start,End,Duration
+Documentation,09:15,11:30,2h 15m
+CS50 Final,11:45,14:20,2h 35m
+Code Review,14:30,16:45,2h 15m
+Total Work Time,,,7h 5m
+Total Break Time,,,0h 30m
+```
+
+### Weekly Report
+
+See your entire week:
+
+```bash
+sitr report week
+```
+
+### Project-Specific Report
+
+Track time spent on a single project:
+
+```bash
+sitr report project "Documentation"
+```
+
+Output:
+```
+        Project Report: Documentation        
+┏━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ Date       ┃ Start ┃ End       ┃ Duration ┃
+┡━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━┩
+│ 2025-10-14 │ 09:15 │ 11:30     │   2h 15m │
+│            │       │ Day Total │   2h 15m │
+│ 2025-10-13 │ 14:00 │ 16:45     │   2h 45m │
+│            │       │ Day Total │   2h 45m │
+├────────────┼───────┼───────────┼──────────┤
+│ Total      │       │           │   5h 0m  │
+└────────────┴───────┴───────────┴──────────┘
+```
+
+### Export Formats
+
+SITR supports multiple output formats:
+
+**ASCII Table** (default) - Beautiful terminal output
+```bash
+sitr report today
+```
+
+**CSV** - For Excel, Numbers, Google Sheets
+```bash
+sitr report today --format csv
+sitr report today --format csv --output monthly.csv
+```
+
+**Markdown** - For documentation and reports
+```bash
+sitr report today --format markdown
+sitr report today --format markdown --output report.md
+```
+
+**JSON** - For processing with scripts
+```bash
+sitr report today --format json
+sitr report today --format json | jq '.summary.total_work_time'
+```
+
+### Copy to Clipboard (macOS)
+
+Quickly copy report data:
+
+```bash
+sitr report today --format csv --clipboard
+# Now paste into any spreadsheet!
+```
+
+### Report Options
+
+```bash
+# Specific date
+sitr report today --date 2025-10-13
+
+# Without header row (CSV)
+sitr report today --format csv --no-header
+
+# Save to file
+sitr report today --output ~/Documents/timesheet.csv
+
+# Combine options
+sitr report week --format markdown --output weekly-report.md
 ```
 
 ## Troubleshooting
