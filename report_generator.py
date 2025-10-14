@@ -179,6 +179,84 @@ class CSVFormatter(ReportFormatter):
             ])
         
         return output.getvalue()
+    
+    @staticmethod
+    def format_weekly_timesheet(data: ReportData, include_header: bool = True) -> str:
+        """Format weekly report as detailed timesheet with dates."""
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        if include_header:
+            writer.writerow(['Date', 'Project', 'Start', 'End', 'Duration'])
+        
+        # Group by date
+        by_date = {}
+        for session in data.sessions:
+            date_str = session['start'].strftime('%Y-%m-%d')
+            if date_str not in by_date:
+                by_date[date_str] = []
+            by_date[date_str].append(session)
+        
+        # Write sessions grouped by date
+        for date_str in sorted(by_date.keys()):
+            for session in by_date[date_str]:
+                writer.writerow([
+                    date_str,
+                    session['project'],
+                    CSVFormatter.format_time(session['start']),
+                    CSVFormatter.format_time(session['end']),
+                    CSVFormatter.format_duration(session['duration'])
+                ])
+            
+            # Day total
+            day_total = sum((s['duration'] for s in by_date[date_str]), timedelta())
+            writer.writerow([
+                date_str,
+                'Day Total',
+                '',
+                '',
+                CSVFormatter.format_duration(day_total)
+            ])
+        
+        # Week total
+        week_total = data.get_total_work_time()
+        writer.writerow(['', 'Week Total', '', '', CSVFormatter.format_duration(week_total)])
+        
+        return output.getvalue()
+    
+    @staticmethod
+    def format_weekly_summary(data: ReportData, include_header: bool = True) -> str:
+        """Format weekly report as consolidated summary by project."""
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        if include_header:
+            writer.writerow(['Project', 'Total Duration'])
+        
+        # Consolidate by project
+        by_project = {}
+        for session in data.sessions:
+            project = session['project']
+            if project not in by_project:
+                by_project[project] = timedelta()
+            by_project[project] += session['duration']
+        
+        # Write project totals
+        for project in sorted(by_project.keys()):
+            writer.writerow([
+                project,
+                CSVFormatter.format_duration(by_project[project])
+            ])
+        
+        # Total
+        total = data.get_total_work_time()
+        writer.writerow(['Total Work Time', CSVFormatter.format_duration(total)])
+        
+        break_time = data.get_total_break_time()
+        if break_time.total_seconds() > 0:
+            writer.writerow(['Total Break Time', CSVFormatter.format_duration(break_time)])
+        
+        return output.getvalue()
 
 
 class ASCIIFormatter(ReportFormatter):
@@ -298,6 +376,130 @@ class ASCIIFormatter(ReportFormatter):
             "",
             f"[bold]{ASCIIFormatter.format_duration(total)}[/bold]"
         )
+        
+        console.print(table)
+        content = output.getvalue()
+        output.close()
+        return content
+    
+    @staticmethod
+    def format_weekly_timesheet(data: ReportData) -> str:
+        """Format weekly report as detailed timesheet with dates."""
+        from rich.console import Console
+        from rich.table import Table
+        
+        output = io.StringIO()
+        console = Console(
+            file=output,
+            force_terminal=False,
+            width=100,
+            legacy_windows=False,
+            no_color=True
+        )
+        
+        table = Table(title="Weekly Timesheet", show_header=True)
+        table.add_column("Date", style="cyan")
+        table.add_column("Project", style="magenta")
+        table.add_column("Start", style="green")
+        table.add_column("End", style="green")
+        table.add_column("Duration", style="yellow", justify="right")
+        
+        # Group by date
+        by_date: dict = {}
+        for session in data.sessions:
+            date_str = session['start'].strftime('%Y-%m-%d')
+            if date_str not in by_date:
+                by_date[date_str] = []
+            by_date[date_str].append(session)
+        
+        # Add sessions grouped by date
+        for date_str in sorted(by_date.keys()):
+            sessions = by_date[date_str]
+            day_total = sum((s['duration'] for s in sessions), timedelta())
+            
+            for i, session in enumerate(sessions):
+                table.add_row(
+                    date_str if i == 0 else "",
+                    session['project'],
+                    ASCIIFormatter.format_time(session['start']),
+                    ASCIIFormatter.format_time(session['end']),
+                    ASCIIFormatter.format_duration(session['duration'])
+                )
+            
+            # Day subtotal
+            table.add_row(
+                "",
+                "[dim]Day Total[/dim]",
+                "",
+                "",
+                f"[bold]{ASCIIFormatter.format_duration(day_total)}[/bold]"
+            )
+        
+        # Week total
+        week_total = data.get_total_work_time()
+        table.add_section()
+        table.add_row(
+            "[bold]Week Total[/bold]",
+            "",
+            "",
+            "",
+            f"[bold]{ASCIIFormatter.format_duration(week_total)}[/bold]"
+        )
+        
+        console.print(table)
+        content = output.getvalue()
+        output.close()
+        return content
+    
+    @staticmethod
+    def format_weekly_summary(data: ReportData) -> str:
+        """Format weekly report as consolidated summary by project."""
+        from rich.console import Console
+        from rich.table import Table
+        
+        output = io.StringIO()
+        console = Console(
+            file=output,
+            force_terminal=False,
+            width=80,
+            legacy_windows=False,
+            no_color=True
+        )
+        
+        table = Table(title="Weekly Work Report", show_header=True)
+        table.add_column("Project", style="cyan")
+        table.add_column("Total Duration", style="yellow", justify="right")
+        
+        # Consolidate by project
+        by_project: dict = {}
+        for session in data.sessions:
+            project = session['project']
+            if project not in by_project:
+                by_project[project] = timedelta()
+            by_project[project] += session['duration']
+        
+        # Add project rows
+        for project in sorted(by_project.keys()):
+            table.add_row(
+                project,
+                ASCIIFormatter.format_duration(by_project[project])
+            )
+        
+        # Totals
+        total_work = data.get_total_work_time()
+        total_break = data.get_total_break_time()
+        
+        table.add_section()
+        table.add_row(
+            "[bold]Total Work Time[/bold]",
+            f"[bold]{ASCIIFormatter.format_duration(total_work)}[/bold]"
+        )
+        
+        if total_break.total_seconds() > 0:
+            table.add_row(
+                "[dim]Total Break Time[/dim]",
+                f"[dim]{ASCIIFormatter.format_duration(total_break)}[/dim]"
+            )
         
         console.print(table)
         content = output.getvalue()

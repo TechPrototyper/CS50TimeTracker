@@ -14,6 +14,8 @@ class User(SQLModel, table=True):
         middle_initial (Optional[str]): The user's middle initial, if any.
         last_name (str): The user's last name.
         email (str): The user's email address, must be unique.
+        active (bool): Whether the user is active (can be selected, tracked).
+        archived_at (Optional[datetime]): When the user was archived/deactivated.
         last_active (Optional[datetime]): The last active timestamp of the user.
         projects (List["Project"]): A list of projects owned by the user.
         trackings (List["Tracking"]): A list of tracking entries associated with the user.
@@ -23,6 +25,8 @@ class User(SQLModel, table=True):
     middle_initial: Optional[str] = Field(default=None, max_length=1)
     last_name: str
     email: str = Field(sa_column_kwargs={"unique": True})
+    active: bool = Field(default=True)
+    archived_at: Optional[datetime] = None
     last_active: Optional[datetime] = None
     projects: List["Project"] = Relationship(back_populates="owner")
     trackings: List["Tracking"] = Relationship(back_populates="user")

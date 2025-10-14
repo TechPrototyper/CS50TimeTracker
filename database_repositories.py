@@ -2,7 +2,7 @@ from sqlmodel import SQLModel, Session, select
 from database_manager import DatabaseManager
 from sitr_models import User, Project, Tracking
 from typing import List, TypeVar, Generic, Type, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 T = TypeVar('T', bound=SQLModel)
 
@@ -180,6 +180,56 @@ class UserRepository(BaseRepository[User]):
         with self._get_session() as session:
             result = session.query(User).filter(User.email == email).first()
             return result
+    
+    def get_active_users(self) -> List[User]:
+        """
+        Get all active (non-archived) users.
+        
+        Returns:
+            List of active users
+        """
+        with self._get_session() as session:
+            result = session.query(User).filter(User.active == True).all()
+            return result
+    
+    def archive_user(self, user_id: int) -> User:
+        """
+        Archive/deactivate a user (soft delete).
+        
+        Args:
+            user_id: ID of user to archive
+            
+        Returns:
+            Updated user object
+        """
+        with self._get_session() as session:
+            user = session.query(User).filter(User.id == user_id).first()
+            if user:
+                user.active = False
+                user.archived_at = datetime.now(timezone.utc)
+                session.commit()
+                session.refresh(user)
+            return user
+    
+    def restore_user(self, user_id: int) -> User:
+        """
+        Restore/reactivate an archived user.
+        
+        Args:
+            user_id: ID of user to restore
+            
+        Returns:
+            Updated user object
+        """
+        with self._get_session() as session:
+            user = session.query(User).filter(User.id == user_id).first()
+            if user:
+                user.active = True
+                user.archived_at = None
+                session.commit()
+                session.refresh(user)
+            return user
+
 
 class ProjectRepository(BaseRepository[Project]):
     '''

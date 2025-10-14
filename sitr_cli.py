@@ -1049,9 +1049,20 @@ def report_week(
         "--week-start",
         "-w",
         help="Week start date (Monday) in YYYY-MM-DD format"
+    ),
+    timesheet: bool = typer.Option(
+        False,
+        "--timesheet",
+        "--detailed",
+        help="Detailed timesheet with dates (vs. summary by project)"
     )
 ):
-    """Generate weekly time report."""
+    """Generate weekly time report.
+    
+    \b
+    Default: Work Report (consolidated by project)
+    --timesheet: Detailed timesheet with date, time, and project
+    """
     from report_generator import (
         ReportData,
         CSVFormatter,
@@ -1074,19 +1085,38 @@ def report_week(
         
         data = ReportData(all_entries)
         
-        # Format based on selection
+        # Choose formatter based on timesheet flag
         format_lower = format.lower()
-        if format_lower == 'csv':
-            result = CSVFormatter.format_daily(data, include_header=not no_header)
-        elif format_lower == 'ascii':
-            result = ASCIIFormatter.format_daily(data)
-        elif format_lower == 'markdown':
-            result = MarkdownFormatter.format_daily(data)
-        elif format_lower == 'json':
-            result = JSONFormatter.format_daily(data)
+        if timesheet:
+            # Detailed timesheet with dates
+            if format_lower == 'csv':
+                result = CSVFormatter.format_weekly_timesheet(
+                    data, include_header=not no_header
+                )
+            elif format_lower == 'ascii':
+                result = ASCIIFormatter.format_weekly_timesheet(data)
+            elif format_lower == 'markdown':
+                result = MarkdownFormatter.format_daily(data)  # TODO
+            elif format_lower == 'json':
+                result = JSONFormatter.format_daily(data)  # TODO
+            else:
+                console.print(f"[red]Unknown format:[/red] {format}")
+                raise typer.Exit(1)
         else:
-            console.print(f"[red]Unknown format:[/red] {format}")
-            raise typer.Exit(1)
+            # Consolidated summary by project (default)
+            if format_lower == 'csv':
+                result = CSVFormatter.format_weekly_summary(
+                    data, include_header=not no_header
+                )
+            elif format_lower == 'ascii':
+                result = ASCIIFormatter.format_weekly_summary(data)
+            elif format_lower == 'markdown':
+                result = MarkdownFormatter.format_daily(data)  # TODO
+            elif format_lower == 'json':
+                result = JSONFormatter.format_daily(data)  # TODO
+            else:
+                console.print(f"[red]Unknown format:[/red] {format}")
+                raise typer.Exit(1)
         
         # Handle output
         _handle_output(result, output, clipboard, format_lower)
