@@ -1,4 +1,5 @@
 # SITR - Simple Time Tracker
+by Tim Walter, begun in 2023, forgot about in 2024, and finished in 2025
 
 > *A personal time-tracking OS that maps the real workflow of an individual human being through phases – instead of just counting tasks or summing durations.*
 
@@ -10,7 +11,7 @@
 
 ## 🎯 Project Background
 
-This project started as a **CS50 Final Project** but remained unfinished for quite some time. After revisiting the initial design and architecture, it became clear that the foundation was solid enough to complete. The result is a production-ready CLI tool with a full API layer, built with Domain-Driven Design principles.
+This project started as a **CS50 Final Project** but remained unfinished for quite some time. The deadline of CS50 has passed, and now it has been completed because I want to use it myself. After revisiting the initial design and architecture, it became clear that the foundation was solid enough to complete. So I put my vision and a dozen of fragmented Source Code files and let Claude Sonnet 4.5 insinuate a bit. The result is a production-ready server that does data handling, and a CLI tool that attaches to that API layer. The backend / business logic was built with Domain-Driven Design principles.
 
 ## 💡 What Makes SITR Different
 
