@@ -943,5 +943,313 @@ def show_info():
     console.print("\n[dim]Tip: Use 'sitr status' for current work status[/dim]")
 
 
+# Report commands
+report_app = typer.Typer(help="Generate time reports in various formats")
+app.add_typer(report_app, name="report")
+
+
+@report_app.command("today")
+def report_today(
+    format: str = typer.Option(
+        "ascii",
+        "--format",
+        "-f",
+        help="Output format: csv, ascii, markdown, json"
+    ),
+    output: Optional[str] = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Write to file instead of stdout"
+    ),
+    clipboard: bool = typer.Option(
+        False,
+        "--clipboard",
+        "-c",
+        help="Copy output to clipboard"
+    ),
+    no_header: bool = typer.Option(
+        False,
+        "--no-header",
+        help="Omit header row (CSV only)"
+    ),
+    date: Optional[str] = typer.Option(
+        None,
+        "--date",
+        "-d",
+        help="Date in YYYY-MM-DD format (default: today)"
+    )
+):
+    """Generate daily time report."""
+    from report_generator import (
+        ReportData,
+        CSVFormatter,
+        ASCIIFormatter,
+        MarkdownFormatter,
+        JSONFormatter
+    )
+    
+    user_id = get_current_user_id()
+    client = get_client()
+    
+    try:
+        # Get report data from API
+        report = client.get_daily_report(user_id, date)
+        data = ReportData(report['entries'])
+        
+        # Format based on selection
+        format_lower = format.lower()
+        if format_lower == 'csv':
+            result = CSVFormatter.format_daily(data, include_header=not no_header)
+        elif format_lower == 'ascii':
+            result = ASCIIFormatter.format_daily(data)
+        elif format_lower == 'markdown':
+            result = MarkdownFormatter.format_daily(data)
+        elif format_lower == 'json':
+            result = JSONFormatter.format_daily(data)
+        else:
+            console.print(f"[red]Unknown format:[/red] {format}")
+            raise typer.Exit(1)
+        
+        # Handle output
+        _handle_output(result, output, clipboard, format_lower)
+        
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@report_app.command("week")
+def report_week(
+    format: str = typer.Option(
+        "ascii",
+        "--format",
+        "-f",
+        help="Output format: csv, ascii, markdown, json"
+    ),
+    output: Optional[str] = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Write to file instead of stdout"
+    ),
+    clipboard: bool = typer.Option(
+        False,
+        "--clipboard",
+        "-c",
+        help="Copy output to clipboard"
+    ),
+    no_header: bool = typer.Option(
+        False,
+        "--no-header",
+        help="Omit header row (CSV only)"
+    ),
+    week_start: Optional[str] = typer.Option(
+        None,
+        "--week-start",
+        "-w",
+        help="Week start date (Monday) in YYYY-MM-DD format"
+    )
+):
+    """Generate weekly time report."""
+    from report_generator import (
+        ReportData,
+        CSVFormatter,
+        ASCIIFormatter,
+        MarkdownFormatter,
+        JSONFormatter
+    )
+    
+    user_id = get_current_user_id()
+    client = get_client()
+    
+    try:
+        # Get report data from API
+        report = client.get_weekly_report(user_id, week_start)
+        
+        # Flatten all entries from all days
+        all_entries = []
+        for day_entries in report['days'].values():
+            all_entries.extend(day_entries)
+        
+        data = ReportData(all_entries)
+        
+        # Format based on selection
+        format_lower = format.lower()
+        if format_lower == 'csv':
+            result = CSVFormatter.format_daily(data, include_header=not no_header)
+        elif format_lower == 'ascii':
+            result = ASCIIFormatter.format_daily(data)
+        elif format_lower == 'markdown':
+            result = MarkdownFormatter.format_daily(data)
+        elif format_lower == 'json':
+            result = JSONFormatter.format_daily(data)
+        else:
+            console.print(f"[red]Unknown format:[/red] {format}")
+            raise typer.Exit(1)
+        
+        # Handle output
+        _handle_output(result, output, clipboard, format_lower)
+        
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@report_app.command("project")
+def report_project(
+    name: str = typer.Argument(..., help="Project name"),
+    format: str = typer.Option(
+        "ascii",
+        "--format",
+        "-f",
+        help="Output format: csv, ascii, markdown, json"
+    ),
+    output: Optional[str] = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Write to file instead of stdout"
+    ),
+    clipboard: bool = typer.Option(
+        False,
+        "--clipboard",
+        "-c",
+        help="Copy output to clipboard"
+    ),
+    no_header: bool = typer.Option(
+        False,
+        "--no-header",
+        help="Omit header row (CSV only)"
+    ),
+    from_date: Optional[str] = typer.Option(
+        None,
+        "--from",
+        help="Start date in YYYY-MM-DD format"
+    ),
+    to_date: Optional[str] = typer.Option(
+        None,
+        "--to",
+        help="End date in YYYY-MM-DD format"
+    )
+):
+    """Generate project time report."""
+    from report_generator import (
+        ReportData,
+        CSVFormatter,
+        ASCIIFormatter,
+        MarkdownFormatter,
+        JSONFormatter
+    )
+    
+    user_id = get_current_user_id()
+    client = get_client()
+    
+    try:
+        # Get report data from API
+        report = client.get_project_report(user_id, name, from_date, to_date)
+        data = ReportData(report['entries'])
+        
+        # Format based on selection
+        format_lower = format.lower()
+        if format_lower == 'csv':
+            result = CSVFormatter.format_project(data, include_header=not no_header)
+        elif format_lower == 'ascii':
+            result = ASCIIFormatter.format_project(data, name)
+        elif format_lower == 'markdown':
+            result = MarkdownFormatter.format_project(data, name)
+        elif format_lower == 'json':
+            result = JSONFormatter.format_project(data, name)
+        else:
+            console.print(f"[red]Unknown format:[/red] {format}")
+            raise typer.Exit(1)
+        
+        # Handle output
+        _handle_output(result, output, clipboard, format_lower)
+        
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+def _handle_output(
+    content: str,
+    output_file: Optional[str],
+    to_clipboard: bool,
+    format: str
+):
+    """Handle output to stdout, file, or clipboard."""
+    import subprocess
+    import platform
+    
+    # Write to file if requested
+    if output_file:
+        with open(output_file, 'w') as f:
+            f.write(content)
+        console.print(f"[green]✓[/green] Written to {output_file}")
+    
+    # Copy to clipboard if requested
+    if to_clipboard:
+        system = platform.system()
+        try:
+            if system == "Darwin":  # macOS
+                process = subprocess.Popen(
+                    ['pbcopy'],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE
+                )
+                process.communicate(content.encode('utf-8'))
+                lines = len(content.splitlines())
+                console.print(
+                    f"[green]✓[/green] Copied {lines} lines to clipboard"
+                )
+            elif system == "Linux":
+                # Try xclip first, then xsel
+                try:
+                    process = subprocess.Popen(
+                        ['xclip', '-selection', 'clipboard'],
+                        stdin=subprocess.PIPE
+                    )
+                    process.communicate(content.encode('utf-8'))
+                    lines = len(content.splitlines())
+                    console.print(
+                        f"[green]✓[/green] Copied {lines} lines to clipboard"
+                    )
+                except FileNotFoundError:
+                    process = subprocess.Popen(
+                        ['xsel', '--clipboard', '--input'],
+                        stdin=subprocess.PIPE
+                    )
+                    process.communicate(content.encode('utf-8'))
+                    lines = len(content.splitlines())
+                    console.print(
+                        f"[green]✓[/green] Copied {lines} lines to clipboard"
+                    )
+            elif system == "Windows":
+                process = subprocess.Popen(
+                    ['clip'],
+                    stdin=subprocess.PIPE,
+                    shell=True
+                )
+                process.communicate(content.encode('utf-8'))
+                lines = len(content.splitlines())
+                console.print(
+                    f"[green]✓[/green] Copied {lines} lines to clipboard"
+                )
+        except Exception as e:
+            console.print(
+                f"[yellow]Warning:[/yellow] Could not copy to clipboard: {e}"
+            )
+    
+    # Print to stdout only if not file/clipboard OR if ascii format
+    if not output_file and not to_clipboard:
+        # Always print
+        console.print(content)
+    elif format == 'ascii' and (output_file or to_clipboard):
+        # ASCII can be printed alongside file/clipboard
+        console.print(content)
+    # For csv/json/markdown: only print if going to stdout
+
+
 if __name__ == "__main__":
     app()

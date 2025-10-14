@@ -31,7 +31,8 @@ setup(
         "time_management_service",
         "database_manager",
         "database_repositories",
-        "enums"
+        "enums",
+        "report_generator"
     ],
     install_requires=[
         "fastapi>=0.100.0",

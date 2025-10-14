@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from database_manager import DatabaseManager
 from database_repositories import (
@@ -629,12 +629,17 @@ async def get_latest_tracking(user_id: int):
             if project:
                 project_name = project.name
         
+        # Ensure timestamp has UTC timezone info
+        timestamp = latest.date_time
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        
         return {
             "id": latest.id,
             "user_id": latest.user_id,
             "action": latest.action,
             "project_name": project_name,
-            "timestamp": latest.date_time.isoformat(),
+            "timestamp": timestamp.isoformat(),
             "message": latest.message
         }
     except Exception as e:
@@ -673,10 +678,12 @@ async def get_today_tracking(user_id: int):
         
         for entry in user_entries:
             if entry.action == "Workday End":
-                # Stop if we hit a workday end (means we're past today's work)
-                if found_workday_start:
-                    break
-                continue
+                # If we find a Workday End before finding a Workday Start,
+                # it means the workday has already ended - no active workday
+                if not found_workday_start:
+                    return []
+                # If we already found the start, stop here (end of workday)
+                break
             
             if entry.action == "Workday Start":
                 found_workday_start = True
@@ -687,12 +694,17 @@ async def get_today_tracking(user_id: int):
                     if project:
                         project_name = project.name
                 
+                # Ensure timestamp has UTC timezone info
+                timestamp = entry.date_time
+                if timestamp.tzinfo is None:
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+                
                 today_entries.append({
                     "id": entry.id,
                     "user_id": entry.user_id,
                     "action": entry.action,
                     "project_name": project_name,
-                    "timestamp": entry.date_time.isoformat(),
+                    "timestamp": timestamp.isoformat(),
                     "message": entry.message
                 })
                 break  # Found workday start, stop searching
@@ -708,12 +720,17 @@ async def get_today_tracking(user_id: int):
                     if project:
                         project_name = project.name
                 
+                # Ensure timestamp has UTC timezone info
+                timestamp = entry.date_time
+                if timestamp.tzinfo is None:
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+                
                 today_entries.append({
                     "id": entry.id,
                     "user_id": entry.user_id,
                     "action": entry.action,
                     "project_name": project_name,
-                    "timestamp": entry.date_time.isoformat(),
+                    "timestamp": timestamp.isoformat(),
                     "message": entry.message
                 })
         
@@ -721,6 +738,236 @@ async def get_today_tracking(user_id: int):
         today_entries.reverse()
         
         return today_entries
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+# Reports API
+@app.get("/api/reports/daily", tags=["Reports"])
+async def get_daily_report(user_id: int, date: Optional[str] = None):
+    """Get daily report for a user.
+    
+    Returns all tracking entries for a specific day with calculated durations.
+    If no date is provided, returns today's report.
+    
+    Args:
+        user_id: The user ID
+        date: Optional date in YYYY-MM-DD format (defaults to today)
+    """
+    db_manager = get_db_manager()
+    tracking_repo = TrackingRepository(db_manager, Tracking)
+    project_repo = ProjectRepository(db_manager, Project)
+    
+    try:
+        from datetime import date as date_type, timedelta
+        
+        # Parse target date
+        if date:
+            target_date = datetime.fromisoformat(date).date()
+        else:
+            target_date = datetime.now().date()
+        
+        # Get all entries for user
+        all_entries = tracking_repo.get_all()
+        user_entries = [e for e in all_entries if e.user_id == user_id]
+        user_entries.sort(key=lambda e: e.date_time)
+        
+        # Filter for target date
+        day_entries = []
+        for entry in user_entries:
+            entry_date = entry.date_time.date()
+            if entry_date == target_date:
+                # Get project name if exists
+                project_name = None
+                if entry.project_id:
+                    project = project_repo.get(entry.project_id)
+                    if project:
+                        project_name = project.name
+                
+                # Ensure timestamp has UTC timezone info
+                timestamp = entry.date_time
+                if timestamp.tzinfo is None:
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+                
+                day_entries.append({
+                    "id": entry.id,
+                    "timestamp": timestamp.isoformat(),
+                    "action": entry.action,
+                    "project_name": project_name,
+                    "message": entry.message
+                })
+        
+        return {
+            "date": target_date.isoformat(),
+            "user_id": user_id,
+            "entries": day_entries
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@app.get("/api/reports/weekly", tags=["Reports"])
+async def get_weekly_report(
+    user_id: int,
+    week_start: Optional[str] = None
+):
+    """Get weekly report for a user.
+    
+    Returns all tracking entries for a week with calculated durations per day.
+    If no week_start is provided, returns current week.
+    
+    Args:
+        user_id: The user ID
+        week_start: Optional start date in YYYY-MM-DD format (Monday)
+    """
+    db_manager = get_db_manager()
+    tracking_repo = TrackingRepository(db_manager, Tracking)
+    project_repo = ProjectRepository(db_manager, Project)
+    
+    try:
+        from datetime import date as date_type, timedelta
+        
+        # Parse start date (Monday)
+        if week_start:
+            start_date = datetime.fromisoformat(week_start).date()
+        else:
+            today = datetime.now().date()
+            # Get Monday of current week
+            start_date = today - timedelta(days=today.weekday())
+        
+        end_date = start_date + timedelta(days=6)  # Sunday
+        
+        # Get all entries for user in date range
+        all_entries = tracking_repo.get_all()
+        user_entries = [e for e in all_entries if e.user_id == user_id]
+        user_entries.sort(key=lambda e: e.date_time)
+        
+        # Group by day
+        week_data = {}
+        for entry in user_entries:
+            entry_date = entry.date_time.date()
+            if start_date <= entry_date <= end_date:
+                date_str = entry_date.isoformat()
+                if date_str not in week_data:
+                    week_data[date_str] = []
+                
+                # Get project name
+                project_name = None
+                if entry.project_id:
+                    project = project_repo.get(entry.project_id)
+                    if project:
+                        project_name = project.name
+                
+                # Ensure timestamp has UTC timezone info
+                timestamp = entry.date_time
+                if timestamp.tzinfo is None:
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+                
+                week_data[date_str].append({
+                    "id": entry.id,
+                    "timestamp": timestamp.isoformat(),
+                    "action": entry.action,
+                    "project_name": project_name,
+                    "message": entry.message
+                })
+        
+        return {
+            "week_start": start_date.isoformat(),
+            "week_end": end_date.isoformat(),
+            "user_id": user_id,
+            "days": week_data
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@app.get("/api/reports/project", tags=["Reports"])
+async def get_project_report(
+    user_id: int,
+    project_name: str,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None
+):
+    """Get report for a specific project.
+    
+    Returns all tracking entries for a project within date range.
+    
+    Args:
+        user_id: The user ID
+        project_name: Name of the project
+        from_date: Optional start date in YYYY-MM-DD format
+        to_date: Optional end date in YYYY-MM-DD format
+    """
+    db_manager = get_db_manager()
+    tracking_repo = TrackingRepository(db_manager, Tracking)
+    project_repo = ProjectRepository(db_manager, Project)
+    
+    try:
+        # Get project
+        project = project_repo.get_by_name(project_name, user_id)
+        if not project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Project '{project_name}' not found"
+            )
+        
+        # Parse date range
+        start_date = None
+        end_date = None
+        if from_date:
+            start_date = datetime.fromisoformat(from_date).date()
+        if to_date:
+            end_date = datetime.fromisoformat(to_date).date()
+        
+        # Get all entries for this project
+        all_entries = tracking_repo.get_all()
+        project_entries = [
+            e for e in all_entries
+            if e.user_id == user_id and e.project_id == project.id
+        ]
+        project_entries.sort(key=lambda e: e.date_time)
+        
+        # Filter by date range if specified
+        filtered_entries = []
+        for entry in project_entries:
+            entry_date = entry.date_time.date()
+            
+            if start_date and entry_date < start_date:
+                continue
+            if end_date and entry_date > end_date:
+                continue
+            
+            # Ensure timestamp has UTC timezone info
+            timestamp = entry.date_time
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=timezone.utc)
+            
+            filtered_entries.append({
+                "id": entry.id,
+                "timestamp": timestamp.isoformat(),
+                "action": entry.action,
+                "project_name": project_name,
+                "message": entry.message
+            })
+        
+        return {
+            "project_name": project_name,
+            "user_id": user_id,
+            "from_date": from_date,
+            "to_date": to_date,
+            "entries": filtered_entries
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

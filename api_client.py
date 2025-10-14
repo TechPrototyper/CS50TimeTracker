@@ -310,6 +310,47 @@ class APIClient:
             params={"user_id": user_id}
         )
 
+    # Report methods
+    def get_daily_report(
+        self,
+        user_id: int,
+        date: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Get daily report for a user."""
+        params = {"user_id": user_id}
+        if date:
+            params["date"] = date
+        return self._make_request("GET", "/api/reports/daily", params=params)
+
+    def get_weekly_report(
+        self,
+        user_id: int,
+        week_start: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Get weekly report for a user."""
+        params = {"user_id": user_id}
+        if week_start:
+            params["week_start"] = week_start
+        return self._make_request("GET", "/api/reports/weekly", params=params)
+
+    def get_project_report(
+        self,
+        user_id: int,
+        project_name: str,
+        from_date: Optional[str] = None,
+        to_date: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Get report for a specific project."""
+        params = {
+            "user_id": user_id,
+            "project_name": project_name
+        }
+        if from_date:
+            params["from_date"] = from_date
+        if to_date:
+            params["to_date"] = to_date
+        return self._make_request("GET", "/api/reports/project", params=params)
+
 
 # Singleton instance
 _api_client: Optional[APIClient] = None
