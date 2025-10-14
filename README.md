@@ -251,7 +251,7 @@ SITR follows Domain-Driven Design (DDD) principles with a clean layered architec
 
 ```
 ┌─────────────────────────────────────┐
-│   CLI Interface (Typer + Rich)     │
+│   CLI Interface (Typer + Rich)      │
 └──────────────┬──────────────────────┘
                │ HTTP/REST
 ┌──────────────▼──────────────────────┐
