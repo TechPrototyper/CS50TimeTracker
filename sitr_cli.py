@@ -389,8 +389,48 @@ def start_project(
                 "[yellow]Note:[/yellow] Previous project was auto-ended."
             )
     except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(1)
+        error_msg = str(e)
+        
+        # Check if error is about missing workday
+        if "No open workday" in error_msg or "start your day first" in error_msg:
+            # Smart prompt: offer to start workday and project together
+            console.print(
+                f"[yellow]⚠ Warning:[/yellow] No open workday."
+            )
+            
+            # Ask user if they want to start workday now
+            start_day = typer.confirm(
+                f"Do you want to start your workday now and begin working on '{project}'?",
+                default=True
+            )
+            
+            if start_day:
+                try:
+                    # First, start the workday
+                    day_result = client.start_day(user_id)
+                    day_timestamp = datetime.fromisoformat(day_result['timestamp'])
+                    console.print(
+                        f"[green]✓[/green] Workday started at "
+                        f"{day_timestamp.strftime('%H:%M')}"
+                    )
+                    
+                    # Now start the project
+                    result = client.start_project(user_id, project, no_confirm)
+                    timestamp = datetime.fromisoformat(result['timestamp'])
+                    console.print(
+                        f"[green]✓[/green] {result['message']} at "
+                        f"{timestamp.strftime('%H:%M')}"
+                    )
+                except Exception as start_error:
+                    console.print(f"[red]Error:[/red] {start_error}")
+                    raise typer.Exit(1)
+            else:
+                console.print("[dim]Cancelled. Start your day with:[/dim] sitr start-day")
+                raise typer.Exit(0)
+        else:
+            # Other errors - just show them
+            console.print(f"[red]Error:[/red] {e}")
+            raise typer.Exit(1)
 
 
 @app.command("end", help="""End working on a project.
