@@ -11,7 +11,7 @@ by Tim Walter, begun in 2023, forgot about in 2024, and finished in 2025
 
 ## 🎯 Project Background
 
-This project started as a **CS50 Final Project** but remained unfinished for quite some time. The deadline of CS50 has passed, and now it has been completed because I want to use it myself. After revisiting the initial design and architecture, it became clear that the foundation was solid enough to complete. So I put my vision and a dozen of fragmented Source Code files and let Claude Sonnet 4.5 insinuate a bit. The result is a production-ready server that does data handling, and a CLI tool that attaches to that API layer. The backend / business logic was built with Domain-Driven Design principles.
+This project started as a **CS50P Final Project** refering to Harvard's popular course **Introduction to Programming with Python**, which I had completed besides the final work. Yet, life set other priorities, and the tool remained unfinished for almost two years. In the meantime, the deadline of CS50 has passed, but I still wanted the tool just for myself, so I finally completed it practically two years after starting it. After revisiting the initial design and architecture, it became clear that the foundation was solid enough to complete. So I took my product vision description and a dozen of fragmented Source Code files into Claude Sonnet 4.5 and let it insinuate a bit. After working together for a couple of hours, the result is a production-ready server that does data handling, and a CLI tool that attaches to that API layer. As envisioned. The backend / business logic was built with Domain-Driven Design principles.
 
 Having said that, there is still some remaining work I will attack when (or if) I find the time:
 
