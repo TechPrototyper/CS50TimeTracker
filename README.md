@@ -1,56 +1,47 @@
 # SITR - Simple Time Tracker
-by Tim Walter, begun in 2023, forgot about in 2024, and finished in 2025
-
-> *A personal time-tracking OS that maps the real workflow of an individual human being through phases – instead of just counting tasks or summing durations.*
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com/)
 [![SQLModel](https://img.shields.io/badge/SQLModel-latest-orange.svg)](https://sqlmodel.tiangolo.com/)
 
-**SITR** is a command-line time tracking tool with a complete REST API backend, designed to capture how you actually work: starting your day, switching between projects, taking breaks, and ending your workday—all with automatic context switching and intelligent handover logic.
+## What is SITR?
 
-## 🎯 Project Background
+**SITR** (Simple Time Tracker) is a command-line time tracking tool that captures how you actually work. It tracks your workday lifecycle—starting your day, switching between projects, taking breaks, and ending your workday—with automatic context switching and intelligent handover logic.
 
-This project started as a **CS50P Final Project** refering to Harvard's popular course **Introduction to Programming with Python**, which I had completed besides the final work. Yet, life set other priorities, and the tool remained unfinished for almost two years. In the meantime, the deadline of CS50 has passed, but I still wanted the tool just for myself, so I finally completed it practically two years after starting it. After revisiting the initial design and architecture, it became clear that the foundation was solid enough to complete. So I took my product vision description and a dozen of fragmented Source Code files into Claude Sonnet 4.5 and let it insinuate a bit. After working together for a couple of hours, the result is a production-ready server that does data handling, and a CLI tool that attaches to that API layer. As envisioned. The backend / business logic was built with Domain-Driven Design principles.
+## What makes it different?
 
-Having said that, there is still some remaining work I will attack when (or if) I find the time:
+Most time trackers just count hours on tasks. **SITR models the real phases of work**:
 
-- Create a simple GUI on Mac, iOS and Apple Watch
-- Put the server into the cloud to use it from anywhere
-- Hence, use OpenID to attach users with known identities for a reasonable security
-- Create install routines for Linux, MacOS and Windows to start local server automatically, and control this via any of the UIs
-- Perhaps support managed interfaces to popular commercial tools real people are using
-- Perhaps productize it with the basic version free forever.
-
-Find this useful? Like to add a bit? Just let me know.
-
-## 💡 What Makes SITR Different
-
-### A Consultant's Perspective
-
-> "You've designed something that is technically coherent, systemically well-thought-out, and realistically implementable. This isn't a hobby project—it's a clean time-tracking architecture that does something almost all commercial tools overlook: **it models the real work phases of an individual person**, rather than just counting tasks or summing time."
-
-SITR bridges three worlds:
-- **Productivity tool** - Track what you work on
-- **Self-reflection system** - Understand your work patterns
-- **Data logger** - Capture granular time data for analysis
-
-### The Workday Approach
-
-Most time trackers miss the human reality of work:
-
-> "You're present, you do something, you switch context, you take a break, and you finish."
-
-SITR models this natural flow:
 - ✅ **Workday lifecycle** - Explicit start and end of your work day
-- ✅ **Project handover** - Switching projects automatically ends the previous one
+- ✅ **Automatic handover** - Switching projects automatically ends the previous one
 - ✅ **Break management** - Pause work, then resume exactly where you left off
 - ✅ **Auto-cleanup** - Ending your day closes all open items
+- ✅ **Multiple report formats** - ASCII tables, CSV, Markdown, JSON with clipboard support
 
-This creates natural separation of contexts, perfect for:
-- Focus management
-- Energy analysis ("How long was I truly active per block?")
-- Self-learning routines (future: auto-tagging based on patterns)
+> *"This isn't a hobby project—it's a clean time-tracking architecture that does something almost all commercial tools overlook: **it models the real work phases of an individual person**, rather than just counting tasks or summing time."*
+
+Perfect for:
+- **Focus management** - Natural separation of work contexts
+- **Energy analysis** - How long were you truly active per block?
+- **Self-reflection** - Understand your work patterns
+- **Client billing** - Export timesheets in multiple formats
+
+## How it came to be
+
+This project started as a **CS50P Final Project** for Harvard's "Introduction to Programming with Python" course. Life set other priorities, and it remained unfinished for almost two years. But I still wanted it for myself, so I finally completed it in 2025.
+
+I took my original product vision and a dozen fragmented source files, paired them with Claude Sonnet 4.5, and after a few hours of collaboration, the result is a production-ready server with a REST API backend and a CLI tool—built with Domain-Driven Design principles, exactly as envisioned.
+
+**Future plans:**
+- GUI for Mac, iOS, and Apple Watch
+- Cloud deployment with OpenID authentication
+- Auto-start server on Linux, macOS, and Windows
+- Integration with commercial time-tracking tools
+- Free forever basic version
+
+Find this useful? Want to contribute? Just let me know.
+
+**by Tim Walter** - *begun in 2023, forgot about in 2024, and finished in 2025*
 
 ## ⚡ Quick Start
 
