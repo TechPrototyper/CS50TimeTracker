@@ -132,9 +132,15 @@ class APIClient:
             }
         )
 
-    def list_users(self) -> List[Dict[str, Any]]:
-        """Get all users."""
-        return self._make_request("GET", "/api/users")
+    def list_users(self, include_archived: bool = False) -> List[Dict[str, Any]]:
+        """
+        Get all users.
+        
+        Args:
+            include_archived: If True, include archived users
+        """
+        params = {"include_archived": include_archived} if include_archived else {}
+        return self._make_request("GET", "/api/users", params=params)
 
     def get_user_by_email(self, email: str) -> Dict[str, Any]:
         """Get user by email."""
@@ -158,9 +164,37 @@ class APIClient:
 
         return self._make_request("PUT", f"/api/users/{email}", data=data)
 
-    def delete_user(self, email: str) -> Dict[str, Any]:
-        """Delete a user."""
-        return self._make_request("DELETE", f"/api/users/{email}")
+    def archive_user(self, email: str) -> Dict[str, Any]:
+        """
+        Archive a user (soft delete).
+        
+        User will be hidden from normal lists but all data is preserved.
+        """
+        return self._make_request("POST", f"/api/users/{email}/archive")
+
+    def restore_user(self, email: str) -> Dict[str, Any]:
+        """Restore an archived user."""
+        return self._make_request("POST", f"/api/users/{email}/restore")
+
+    def get_user_deletion_impact(self, email: str) -> Dict[str, Any]:
+        """
+        Get information about what would be deleted if user is deleted.
+        
+        Returns counts of tracking entries, projects, etc.
+        """
+        return self._make_request("GET", f"/api/users/{email}/deletion-impact")
+
+    def delete_user(self, email: str, cascade: bool = False) -> Dict[str, Any]:
+        """
+        Permanently delete a user.
+        
+        Args:
+            email: User email
+            cascade: If True, also delete all related data (tracking, projects)
+                    If False, will fail if user has related data
+        """
+        params = {"cascade": cascade} if cascade else {}
+        return self._make_request("DELETE", f"/api/users/{email}", params=params)
 
     def select_user(self, email: str) -> Dict[str, Any]:
         """Mark user as selected."""

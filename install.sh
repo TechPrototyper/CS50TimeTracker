@@ -3,6 +3,13 @@
 # SITR Installation Script
 # Supports macOS, Linux, and Windows (via Git Bash/WSL)
 #
+# Usage:
+#   ./install.sh              - Interactive installation
+#   ./install.sh --fresh      - Fresh install with demo data
+#   ./install.sh --update     - Update keeping existing database
+#   ./install.sh --dev        - Development mode installation
+#   ./install.sh --uninstall  - Remove SITR
+#
 
 set -e
 
@@ -10,7 +17,81 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Database location
+DB_DIR="$HOME/.sitr"
+DB_FILE="$DB_DIR/sitr.db"
+OLD_DB_FILE="./sitr.db"  # Legacy location
+
+# Check if database exists
+check_database() {
+    if [ -f "$DB_FILE" ]; then
+        return 0  # Database exists
+    elif [ -f "$OLD_DB_FILE" ]; then
+        return 0  # Old database exists
+    else
+        return 1  # No database
+    fi
+}
+
+# Backup existing database
+backup_database() {
+    if [ -f "$DB_FILE" ]; then
+        BACKUP_FILE="${DB_FILE}.backup.$(date +%Y%m%d_%H%M%S)"
+        echo -e "${YELLOW}→ Creating database backup...${NC}"
+        cp "$DB_FILE" "$BACKUP_FILE"
+        echo -e "${GREEN}✓ Database backed up to: $BACKUP_FILE${NC}"
+    fi
+}
+
+# Setup fresh database
+setup_fresh_database() {
+    echo -e "\n${YELLOW}→ Setting up fresh database...${NC}"
+    
+    # Remove old database if exists
+    if [ -f "$DB_FILE" ]; then
+        rm "$DB_FILE"
+        echo -e "${GREEN}✓ Removed old database${NC}"
+    fi
+    
+    # Create directory if not exists
+    mkdir -p "$DB_DIR"
+    
+    echo -e "${GREEN}✓ Fresh database will be created on first use${NC}"
+}
+
+# Migrate legacy database
+migrate_legacy_database() {
+    if [ -f "$OLD_DB_FILE" ] && [ ! -f "$DB_FILE" ]; then
+        echo -e "\n${YELLOW}→ Migrating legacy database...${NC}"
+        mkdir -p "$DB_DIR"
+        cp "$OLD_DB_FILE" "$DB_FILE"
+        echo -e "${GREEN}✓ Database migrated to: $DB_FILE${NC}"
+    fi
+}
+
+# Ask about demo data
+ask_demo_data() {
+    echo -e "\n${BLUE}Would you like to create demo user and projects?${NC}"
+    echo "  This will create:"
+    echo "  - Demo user (demo@example.com)"
+    echo "  - 3 sample projects"
+    echo ""
+    read -p "Create demo data? (y/N): " create_demo
+    
+    case $create_demo in
+        [Yy]*)
+            export SITR_CREATE_DEMO_DATA="true"
+            echo -e "${GREEN}✓ Demo data will be created on first start${NC}"
+            ;;
+        *)
+            export SITR_CREATE_DEMO_DATA="false"
+            echo -e "${YELLOW}→ Skipping demo data${NC}"
+            ;;
+    esac
+}
 
 # Detect OS
 detect_os() {
@@ -94,33 +175,113 @@ verify_installation() {
 
 # Main installation flow
 main() {
+    local INSTALL_MODE="$1"
+    
     echo -e "${YELLOW}OS detected: $OS${NC}\n"
     
     check_python
     
-    # Ask for installation type
-    if [ "$1" == "--dev" ]; then
-        install_sitr "--dev"
-    else
-        echo -e "\n${YELLOW}Choose installation type:${NC}"
-        echo "  1) Regular installation (recommended)"
-        echo "  2) Development installation (editable)"
-        read -p "Enter choice (1 or 2): " choice
+    # Determine installation mode
+    if [ "$INSTALL_MODE" == "--fresh" ]; then
+        echo -e "${BLUE}Fresh Installation Mode${NC}\n"
+        backup_database
+        setup_fresh_database
+        ask_demo_data
+        install_sitr
         
-        case $choice in
-            1) install_sitr ;;
-            2) install_sitr "--dev" ;;
-            *) echo -e "${RED}Invalid choice${NC}"; exit 1 ;;
-        esac
+    elif [ "$INSTALL_MODE" == "--update" ]; then
+        echo -e "${BLUE}Update Mode${NC}\n"
+        if check_database; then
+            backup_database
+            echo -e "${GREEN}✓ Keeping existing database${NC}"
+        else
+            echo -e "${YELLOW}⚠ No existing database found${NC}"
+        fi
+        install_sitr
+        
+    elif [ "$INSTALL_MODE" == "--dev" ]; then
+        echo -e "${BLUE}Development Mode${NC}\n"
+        if check_database; then
+            backup_database
+            echo -e "${GREEN}✓ Keeping existing database${NC}"
+        fi
+        install_sitr "--dev"
+        
+    else
+        # Interactive mode
+        if check_database; then
+            echo -e "${BLUE}Existing database detected${NC}\n"
+            echo "Choose installation type:"
+            echo "  1) Update (keep existing database)"
+            echo "  2) Fresh install (backup and reset database)"
+            echo "  3) Development mode (keep database, editable install)"
+            read -p "Enter choice (1-3): " choice
+            
+            case $choice in
+                1)
+                    backup_database
+                    echo -e "${GREEN}✓ Keeping existing database${NC}"
+                    install_sitr
+                    ;;
+                2)
+                    backup_database
+                    setup_fresh_database
+                    ask_demo_data
+                    install_sitr
+                    ;;
+                3)
+                    backup_database
+                    echo -e "${GREEN}✓ Keeping existing database${NC}"
+                    install_sitr "--dev"
+                    ;;
+                *)
+                    echo -e "${RED}Invalid choice${NC}"
+                    exit 1
+                    ;;
+            esac
+        else
+            echo -e "${BLUE}No existing database found - Fresh Installation${NC}\n"
+            echo "Choose installation type:"
+            echo "  1) Regular installation"
+            echo "  2) Development installation (editable)"
+            read -p "Enter choice (1 or 2): " choice
+            
+            case $choice in
+                1)
+                    ask_demo_data
+                    install_sitr
+                    ;;
+                2)
+                    ask_demo_data
+                    install_sitr "--dev"
+                    ;;
+                *)
+                    echo -e "${RED}Invalid choice${NC}"
+                    exit 1
+                    ;;
+            esac
+        fi
     fi
     
+    migrate_legacy_database
     verify_installation
     
     echo -e "\n${GREEN}======================================${NC}"
     echo -e "${GREEN}✓ Installation complete!${NC}"
+    echo -e "\n${YELLOW}Database location:${NC} $DB_FILE"
+    
+    if [ "$SITR_CREATE_DEMO_DATA" == "true" ]; then
+        echo -e "\n${YELLOW}Demo data will be created on first start${NC}"
+        echo -e "${YELLOW}Demo user: demo@example.com${NC}"
+    fi
+    
     echo -e "\n${YELLOW}Quick start:${NC}"
-    echo -e "  sitr user add -f John -l Doe -e john@example.com"
-    echo -e "  sitr user select -e john@example.com"
+    if [ "$SITR_CREATE_DEMO_DATA" != "true" ]; then
+        echo -e "  sitr user add -f John -l Doe -e john@example.com"
+        echo -e "  sitr user select -e john@example.com"
+    else
+        echo -e "  sitr user select -e demo@example.com"
+    fi
     echo -e "  sitr start-day"
     echo -e "\n${YELLOW}For more information:${NC}"
     echo -e "  sitr --help"
@@ -129,11 +290,30 @@ main() {
 }
 
 # Handle script arguments
-if [ "$1" == "--uninstall" ]; then
-    echo -e "${YELLOW}→ Uninstalling SITR...${NC}"
-    pip3 uninstall -y sitr
-    echo -e "${GREEN}✓ SITR uninstalled${NC}"
-    exit 0
-fi
-
-main "$@"
+case "$1" in
+    --uninstall)
+        echo -e "${YELLOW}→ Uninstalling SITR...${NC}"
+        pip3 uninstall -y sitr
+        echo -e "${GREEN}✓ SITR uninstalled${NC}"
+        echo -e "${YELLOW}Note: Database at $DB_FILE was not removed${NC}"
+        exit 0
+        ;;
+    --fresh|--update|--dev)
+        main "$1"
+        ;;
+    --help|-h)
+        echo "SITR Installation Script"
+        echo ""
+        echo "Usage:"
+        echo "  ./install.sh              Interactive installation"
+        echo "  ./install.sh --fresh      Fresh install (backup & reset DB)"
+        echo "  ./install.sh --update     Update (keep existing DB)"
+        echo "  ./install.sh --dev        Development mode (editable install)"
+        echo "  ./install.sh --uninstall  Remove SITR"
+        echo "  ./install.sh --help       Show this help"
+        exit 0
+        ;;
+    *)
+        main
+        ;;
+esac

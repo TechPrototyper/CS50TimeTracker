@@ -209,22 +209,30 @@ def add_user(
 
 
 @user_app.command("list", help="Show all registered users")
-def list_users():
+def list_users(
+    show_all: bool = typer.Option(
+        False,
+        "--all",
+        "-a",
+        help="Include archived users"
+    )
+):
     """List all users."""
     client = get_client()
     config = get_config()
     current_user_id = config.get_current_user_id()
 
-    users = client.list_users()
+    users = client.list_users(include_archived=show_all)
     if not users:
         console.print("[yellow]No users found.[/yellow]")
         return
 
-    table = Table(title="Users")
+    table = Table(title="Users" if not show_all else "All Users (including archived)")
     table.add_column("", style="yellow", width=2)  # Marker column
     table.add_column("ID", style="cyan")
     table.add_column("Name", style="green")
     table.add_column("Email", style="blue")
+    table.add_column("Status", style="magenta")
 
     for user in users:
         name = f"{user['first_name']}"
@@ -234,7 +242,11 @@ def list_users():
         
         # Mark active user with arrow
         marker = "→" if user['id'] == current_user_id else ""
-        table.add_row(marker, str(user['id']), name, user['email'])
+        
+        # Show status
+        status = "active" if user.get('active', True) else "archived"
+        
+        table.add_row(marker, str(user['id']), name, user['email'], status)
 
     console.print(table)
     
@@ -271,18 +283,121 @@ def select_user(
 
 
 @user_app.command(
-    "delete",
-    help="Remove a user (WARNING: This deletes all their tracking data!)"
+    "archive",
+    help="Archive a user (hides from normal lists but keeps all data)"
 )
-def delete_user(
+def archive_user(
     email: str = typer.Option(..., "--email", "-e", help="Email address")
 ):
-    """Delete a user."""
+    """Archive a user (soft delete - keeps all tracking data)."""
     client = get_client()
 
     try:
-        result = client.delete_user(email)
+        result = client.archive_user(email)
         console.print(f"[green]✓[/green] {result['message']}")
+        console.print("[yellow]Note:[/yellow] User is archived but all tracking data is preserved")
+        console.print("[yellow]Use 'sitr user list --all' to see archived users[/yellow]")
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@user_app.command(
+    "restore",
+    help="Restore an archived user"
+)
+def restore_user(
+    email: str = typer.Option(..., "--email", "-e", help="Email address")
+):
+    """Restore an archived user."""
+    client = get_client()
+
+    try:
+        result = client.restore_user(email)
+        console.print(f"[green]✓[/green] {result['message']}")
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@user_app.command(
+    "delete",
+    help="⚠️  PERMANENTLY DELETE a user and ALL their data (DANGEROUS!)"
+)
+def delete_user(
+    email: str = typer.Option(..., "--email", "-e", help="Email address"),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Skip confirmation prompt"
+    )
+):
+    """
+    Permanently delete a user and ALL associated data.
+    
+    WARNING: This will delete:
+    - The user account
+    - All tracking entries
+    - All projects owned by this user (if no other users have tracking on them)
+    
+    This action CANNOT be undone!
+    
+    Consider using 'sitr user archive' instead to preserve data.
+    """
+    client = get_client()
+
+    try:
+        # Get user info first to show what will be deleted
+        try:
+            user_info = client.get_user_by_email(email)
+        except:
+            console.print(f"[red]Error:[/red] User '{email}' not found")
+            raise typer.Exit(1)
+        
+        # Get deletion impact
+        impact = client.get_user_deletion_impact(email)
+        
+        # Show warning
+        console.print(f"\n[red bold]⚠️  WARNING: PERMANENT DELETION ⚠️[/red bold]\n")
+        console.print(f"[yellow]User:[/yellow] {user_info['firstname']} {user_info['lastname']} ({email})")
+        console.print(f"\n[red]This will permanently delete:[/red]")
+        console.print(f"  • {impact['tracking_entries']} tracking entries")
+        console.print(f"  • {impact['projects_owned']} projects owned by this user")
+        if impact['projects_with_shared_tracking'] > 0:
+            console.print(f"  • [yellow]Warning:[/yellow] {impact['projects_with_shared_tracking']} projects have tracking from other users")
+            console.print(f"    These projects will be kept but this user's tracking will be removed")
+        console.print(f"\n[red bold]THIS CANNOT BE UNDONE![/red bold]")
+        console.print(f"\n[yellow]Consider using 'sitr user archive' instead to keep the data.[/yellow]\n")
+        
+        if not force:
+            confirm = typer.confirm(
+                f"Are you absolutely sure you want to delete user '{email}' and all their data?",
+                default=False
+            )
+            
+            if not confirm:
+                console.print("[yellow]Deletion cancelled[/yellow]")
+                raise typer.Exit(0)
+            
+            # Double confirmation for safety
+            confirm2 = typer.confirm(
+                "This is your last chance. Really delete? Type 'yes' to confirm",
+                default=False
+            )
+            
+            if not confirm2:
+                console.print("[yellow]Deletion cancelled[/yellow]")
+                raise typer.Exit(0)
+        
+        # Perform deletion
+        result = client.delete_user(email, cascade=True)
+        console.print(f"\n[green]✓[/green] {result['message']}")
+        console.print(f"[yellow]Deleted:[/yellow] {result['deleted']['trackings']} tracking entries")
+        console.print(f"[yellow]Deleted:[/yellow] {result['deleted']['projects']} projects")
+        
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1)

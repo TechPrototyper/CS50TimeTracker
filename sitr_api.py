@@ -165,14 +165,22 @@ async def create_user(user_data: UserCreate):
         )
 
 
-@app.get("/api/users", response_model=List[UserResponse], tags=["Users"])
-async def list_users():
-    """Get all users."""
+@app.get("/api/users", tags=["Users"])
+async def list_users(include_archived: bool = False):
+    """
+    Get all users.
+    
+    Args:
+        include_archived: If True, include archived users
+    """
     db_manager = get_db_manager()
     user_repo = UserRepository(db_manager, User)
 
     try:
-        users = user_repo.get_all()
+        if include_archived:
+            users = user_repo.get_all()
+        else:
+            users = user_repo.get_active_users()
         return users
     except Exception as e:
         raise HTTPException(
@@ -242,9 +250,77 @@ async def update_user(email: str, user_data: UserUpdate):
         )
 
 
-@app.delete("/api/users/{email}", tags=["Users"])
-async def delete_user(email: str):
-    """Delete a user."""
+@app.post("/api/users/{email}/archive", tags=["Users"])
+async def archive_user(email: str):
+    """Archive a user (soft delete)."""
+    db_manager = get_db_manager()
+    user_repo = UserRepository(db_manager, User)
+
+    try:
+        user = user_repo.get_by_email(email)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with email '{email}' not found"
+            )
+        
+        if not user.active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"User '{email}' is already archived"
+            )
+
+        user_repo.archive_user(user.id)
+        return {
+            "success": True,
+            "message": f"User '{email}' archived"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@app.post("/api/users/{email}/restore", tags=["Users"])
+async def restore_user(email: str):
+    """Restore an archived user."""
+    db_manager = get_db_manager()
+    user_repo = UserRepository(db_manager, User)
+
+    try:
+        user = user_repo.get_by_email(email)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with email '{email}' not found"
+            )
+        
+        if user.active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"User '{email}' is not archived"
+            )
+
+        user_repo.restore_user(user.id)
+        return {
+            "success": True,
+            "message": f"User '{email}' restored"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@app.get("/api/users/{email}/deletion-impact", tags=["Users"])
+async def get_user_deletion_impact(email: str):
+    """Get information about what would be deleted if user is deleted."""
     db_manager = get_db_manager()
     user_repo = UserRepository(db_manager, User)
 
@@ -256,8 +332,130 @@ async def delete_user(email: str):
                 detail=f"User with email '{email}' not found"
             )
 
-        user_repo.delete(user.id)
-        return {"success": True, "message": f"User '{email}' deleted"}
+        # Count tracking entries
+        from sqlmodel import Session, select
+        with Session(db_manager.engine) as session:
+            tracking_count = len(
+                session.exec(
+                    select(Tracking).where(Tracking.user_id == user.id)
+                ).all()
+            )
+            
+            # Get projects owned by this user
+            projects_owned = session.exec(
+                select(Project).where(Project.user_id == user.id)
+            ).all()
+            
+            projects_count = len(projects_owned)
+            
+            # Check if any projects have tracking from other users
+            projects_with_shared_tracking = 0
+            for project in projects_owned:
+                other_users_tracking = session.exec(
+                    select(Tracking).where(
+                        Tracking.project_id == project.id,
+                        Tracking.user_id != user.id
+                    )
+                ).first()
+                if other_users_tracking:
+                    projects_with_shared_tracking += 1
+
+        return {
+            "tracking_entries": tracking_count,
+            "projects_owned": projects_count,
+            "projects_with_shared_tracking": projects_with_shared_tracking
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@app.delete("/api/users/{email}", tags=["Users"])
+async def delete_user(email: str, cascade: bool = False):
+    """
+    Delete a user.
+    
+    Args:
+        email: User email
+        cascade: If True, also delete all related data
+    """
+    db_manager = get_db_manager()
+    user_repo = UserRepository(db_manager, User)
+
+    try:
+        user = user_repo.get_by_email(email)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with email '{email}' not found"
+            )
+
+        if cascade:
+            # Delete with CASCADE - remove all related data
+            from sqlmodel import Session, select, delete as sql_delete
+            
+            deleted_counts = {
+                "trackings": 0,
+                "projects": 0
+            }
+            
+            with Session(db_manager.engine) as session:
+                # Delete all tracking entries for this user
+                tracking_result = session.exec(
+                    sql_delete(Tracking).where(Tracking.user_id == user.id)
+                )
+                deleted_counts["trackings"] = tracking_result.rowcount
+                
+                # Get projects owned by this user
+                projects = session.exec(
+                    select(Project).where(Project.user_id == user.id)
+                ).all()
+                
+                # Delete projects (and their tracking via cascade)
+                for project in projects:
+                    # Delete tracking for this project from all users
+                    session.exec(
+                        sql_delete(Tracking).where(
+                            Tracking.project_id == project.id
+                        )
+                    )
+                    session.delete(project)
+                    deleted_counts["projects"] += 1
+                
+                # Now delete the user
+                session.delete(user)
+                session.commit()
+            
+            return {
+                "success": True,
+                "message": f"User '{email}' and all related data deleted",
+                "deleted": deleted_counts
+            }
+        else:
+            # Try to delete without cascade - will fail if data exists
+            try:
+                user_repo.delete(user.id)
+                return {
+                    "success": True,
+                    "message": f"User '{email}' deleted"
+                }
+            except Exception as e:
+                if "FOREIGN KEY" in str(e) or "IntegrityError" in str(e):
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=(
+                            f"Cannot delete user '{email}' because they have "
+                            "related data (tracking entries or projects). "
+                            "Use cascade=true to delete all related data, "
+                            "or use /archive endpoint to archive the user."
+                        )
+                    )
+                raise
+                
     except HTTPException:
         raise
     except Exception as e:
