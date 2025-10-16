@@ -344,19 +344,16 @@ For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
 - ✅ Reports and analytics (daily, weekly, project-specific)
 
 ### 📋 Phase 3: Integration & Workflows (Planned)
-- Alfred/LaunchBar workflows
-- Enhanced export templates
-- Additional report formats
-- API documentation and client libraries
+- Cloud Version
+- Multi Users and Security (IAM, Encryption of Data)
 
-### 🔮 Phase 4: Advanced Features (Future)
-- macOS menu bar app
-- Automatic context switching based on active app
+### 🔮 In the backlog, just ideas at this point:
 - Self-learning routine suggestions
 - Team collaboration features
 - Cloud sync and multi-device support
+- Timeboxing support
 
-### 🧪 Experimental Development Tracks
+### 🧪 Experimental parallel Development Tracks
 There are parallel development efforts exploring:
 - **Apple ecosystem integration** - Native apps for iOS, watchOS, and Siri integration
 - **AI assistant integration** - Tools for LLM and AI assistant access
