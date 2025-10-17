@@ -107,6 +107,10 @@ class OperationResponse(BaseModel):
     data: Optional[Dict[str, Any]] = None
 
 
+# Database initialization is handled by `sitr init-db` command
+# No automatic initialization on module load to avoid performance overhead
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="SITR API",
@@ -566,7 +570,7 @@ async def start_project(request: StartProjectRequest):
         result = service.start_project(
             request.user_id,
             request.project_name,
-            request.no_confirm
+            auto_create=True  # Auto-create project if not found
         )
         return OperationResponse(
             success=True,

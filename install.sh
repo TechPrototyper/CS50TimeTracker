@@ -56,6 +56,20 @@ setup_fresh_database() {
         echo -e "${GREEN}✓ Removed old database${NC}"
     fi
     
+    # Reset config file to clear user selection
+    CONFIG_FILE="$HOME/.sitrconfig"
+    if [ -f "$CONFIG_FILE" ]; then
+        rm "$CONFIG_FILE"
+        echo -e "${GREEN}✓ Reset configuration${NC}"
+    fi
+    
+    # Remove legacy current_user file
+    CURRENT_USER_FILE="$DB_DIR/current_user"
+    if [ -f "$CURRENT_USER_FILE" ]; then
+        rm "$CURRENT_USER_FILE"
+        echo -e "${GREEN}✓ Removed legacy user file${NC}"
+    fi
+    
     # Create directory if not exists
     mkdir -p "$DB_DIR"
     
@@ -264,6 +278,11 @@ main() {
     fi
     
     migrate_legacy_database
+    
+    # Initialize database tables
+    echo -e "\n${YELLOW}→ Initializing database tables...${NC}"
+    sitr init-db
+    
     verify_installation
     
     echo -e "\n${GREEN}======================================${NC}"

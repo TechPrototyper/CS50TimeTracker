@@ -8,11 +8,28 @@ import typer
 from typing import Optional
 from rich.console import Console
 from rich.table import Table
-from datetime import datetime
+from datetime import datetime, timezone
 
 from api_client import get_api_client
 from config_manager import get_config_manager
 from server_manager import get_server_manager
+
+
+def utc_to_local(utc_dt_str: str) -> datetime:
+    """Convert UTC datetime string to local datetime."""
+    # Handle both 'Z' suffix and no suffix (assume UTC if no timezone)
+    if isinstance(utc_dt_str, str):
+        utc_dt = datetime.fromisoformat(utc_dt_str.replace('Z', '+00:00'))
+    else:
+        # Already a datetime object
+        utc_dt = utc_dt_str
+    
+    # If naive (no timezone), assume UTC
+    if utc_dt.tzinfo is None:
+        utc_dt = utc_dt.replace(tzinfo=timezone.utc)
+    
+    # Convert to local timezone
+    return utc_dt.astimezone()
 
 app = typer.Typer(
     name="sitr",
@@ -426,7 +443,7 @@ def start_day():
 
     try:
         result = client.start_day(user_id)
-        timestamp = datetime.fromisoformat(result['timestamp'])
+        timestamp = utc_to_local(result['timestamp'])
         console.print(
             f"[green]✓[/green] {result['message']} at "
             f"{timestamp.strftime('%H:%M')}"
@@ -449,7 +466,7 @@ def end_day():
 
     try:
         result = client.end_day(user_id)
-        timestamp = datetime.fromisoformat(result['timestamp'])
+        timestamp = utc_to_local(result['timestamp'])
         console.print(
             f"[green]✓[/green] {result['message']} at "
             f"{timestamp.strftime('%H:%M')}"
@@ -494,7 +511,7 @@ def start_project(
 
     try:
         result = client.start_project(user_id, project, no_confirm)
-        timestamp = datetime.fromisoformat(result['timestamp'])
+        timestamp = utc_to_local(result['timestamp'])
         console.print(
             f"[green]✓[/green] {result['message']} at "
             f"{timestamp.strftime('%H:%M')}"
@@ -523,7 +540,7 @@ def start_project(
                 try:
                     # First, start the workday
                     day_result = client.start_day(user_id)
-                    day_timestamp = datetime.fromisoformat(day_result['timestamp'])
+                    day_timestamp = utc_to_local(day_result['timestamp'])
                     console.print(
                         f"[green]✓[/green] Workday started at "
                         f"{day_timestamp.strftime('%H:%M')}"
@@ -531,7 +548,7 @@ def start_project(
                     
                     # Now start the project
                     result = client.start_project(user_id, project, no_confirm)
-                    timestamp = datetime.fromisoformat(result['timestamp'])
+                    timestamp = utc_to_local(result['timestamp'])
                     console.print(
                         f"[green]✓[/green] {result['message']} at "
                         f"{timestamp.strftime('%H:%M')}"
@@ -567,7 +584,7 @@ def end_project(
 
     try:
         result = client.end_project(user_id, project)
-        timestamp = datetime.fromisoformat(result['timestamp'])
+        timestamp = utc_to_local(result['timestamp'])
         console.print(
             f"[green]✓[/green] {result['message']} at "
             f"{timestamp.strftime('%H:%M')}"
@@ -620,7 +637,7 @@ def break_start(
 
     try:
         result = client.start_break(user_id, message)
-        timestamp = datetime.fromisoformat(result['timestamp'])
+        timestamp = utc_to_local(result['timestamp'])
         console.print(
             f"[green]✓[/green] {result['message']} at "
             f"{timestamp.strftime('%H:%M')}"
@@ -643,7 +660,7 @@ def break_end():
 
     try:
         result = client.end_break(user_id)
-        timestamp = datetime.fromisoformat(result['timestamp'])
+        timestamp = utc_to_local(result['timestamp'])
         console.print(
             f"[green]✓[/green] {result['message']} at "
             f"{timestamp.strftime('%H:%M')}"
@@ -673,7 +690,7 @@ def continue_project():
 
     try:
         result = client.continue_project(user_id)
-        timestamp = datetime.fromisoformat(result['timestamp'])
+        timestamp = utc_to_local(result['timestamp'])
         console.print(
             f"[green]✓[/green] {result['message']} at "
             f"{timestamp.strftime('%H:%M')}"
@@ -1076,7 +1093,8 @@ def show_info():
     info_table.add_row("Config File", config_file)
     
     # Database
-    db_file = os.path.join(os.getcwd(), "sitr.db")
+    from pathlib import Path
+    db_file = str(Path.home() / ".sitr" / "sitr.db")
     info_table.add_row("Database", db_file)
     
     # Server
@@ -1434,6 +1452,29 @@ def _handle_output(
         # ASCII can be printed alongside file/clipboard
         console.print(content)
     # For csv/json/markdown: only print if going to stdout
+
+
+@app.command("init-db", help="Initialize database tables")
+def init_db():
+    """Initialize database tables."""
+    from pathlib import Path
+    from database_manager import DatabaseManager
+    # Import models to register them with SQLModel.metadata
+    import sitr_models  # noqa: F401
+    
+    db_path = Path.home() / ".sitr" / "sitr.db"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    console.print("[yellow]→ Initializing database...[/yellow]")
+    console.print(f"[dim]Database: {db_path}[/dim]")
+    
+    try:
+        db_manager = DatabaseManager(f"sqlite:///{db_path}")
+        db_manager.create_tables()
+        console.print("[green]✓ Database tables created successfully![/green]")
+    except Exception as e:
+        console.print(f"[red]✗ Error creating tables: {e}[/red]")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
